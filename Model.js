@@ -12,9 +12,10 @@ function hasAttention(sessions) {
   return (sessions || []).some(function(session) { return session.status === "attention" })
 }
 
-function petState(sessions, limits, now) {
+function petState(sessions, limits, now, focusing) {
   if (hasAttention(sessions)) return "attention"
   if (alarmingLimit(limits, 90, now)) return "limit"
+  if (focusing) return "focus"
   if ((sessions || []).some(function(session) { return session.status === "working" })) return "working"
   return "idle"
 }
@@ -209,6 +210,50 @@ function modelRows(modelUsage) {
   }).sort(function(a, b) { return b.total - a.total }).slice(0, 4)
   var peak = rows.length ? rows[0].total : 0
   return rows.map(function(row) { return { id: row.id, total: row.total, share: peak ? row.total / peak : 0 } })
+}
+
+// Foco/pomodoro: rodadas de trabalho com pausa entre elas (sem pausa após a última)
+function focusPhase(focus, now) {
+  if (!focus || typeof focus.started_at !== "number") return null
+  var work = Number(focus.work_min) * 60000
+  var rest = Number(focus.break_min) * 60000
+  var rounds = Number(focus.rounds) || 1
+  var cycle = work + rest
+  var elapsed = Math.max(0, (typeof focus.paused_at === "number" ? focus.paused_at : now) - focus.started_at)
+  var base = { rounds: rounds, paused: typeof focus.paused_at === "number" }
+  if (elapsed >= rounds * work + (rounds - 1) * rest)
+    return Object.assign({ phase: "done", round: rounds, remainingMs: 0, share: 1 }, base)
+  var round = Math.floor(elapsed / cycle)
+  var within = elapsed - round * cycle
+  var working = within < work
+  return Object.assign({
+    phase: working ? "work" : "break",
+    round: round + 1,
+    remainingMs: working ? work - within : cycle - within,
+    share: working ? within / work : (within - work) / rest
+  }, base)
+}
+
+// "15:04"; segundos arredondados para cima, para não mostrar 0:00 antes do fim
+function focusClock(ms) {
+  var seconds = Math.ceil(Math.max(0, ms) / 1000)
+  var rest = seconds % 60
+  return Math.floor(seconds / 60) + ":" + (rest < 10 ? "0" : "") + rest
+}
+
+// Texto do aviso ao entrar em cada etapa do foco
+function focusMessage(info, focus) {
+  if (info.phase === "done") return "Foco concluído · " + info.rounds + " rodadas"
+  if (info.phase === "break") return "Pausa de " + focus.break_min + " min · rodada " + info.round + "/" + info.rounds + " concluída"
+  return "Foco: rodada " + info.round + "/" + info.rounds + " · " + focus.work_min + " min"
+}
+
+// Biblioteca compartilhada: só a primeira cópia do painel (um por monitor) avisa
+var CLAIMED = {}
+function claimOnce(key) {
+  if (CLAIMED[key]) return false
+  CLAIMED[key] = true
+  return true
 }
 
 // Sprite 16x16 do computador antigo: O/E/C tinta, B gabinete, F tela, A destaque, X alerta, Z sono

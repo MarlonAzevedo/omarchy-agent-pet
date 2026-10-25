@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs"
 const source = readFileSync(new URL("../Model.js", import.meta.url), "utf8").replace(/^\.pragma library\s*/, "")
-const Model = new Function(source + "; return { sortSessions, hasAttention, alarmingLimit, visible, formatDuration, limitPercent, sessionElapsed, petState, petRows, windowShort, resetLabel, sessionName, activityText, permissionText, shortDuration, runningCount, depletionTime, visibleRecords, visibleSessions, agentLabel, limitRecords, pickRecord, keepLimits, jsonFiles, usageRecords, dayRows, modelRows }")()
+const Model = new Function(source + "; return { sortSessions, hasAttention, alarmingLimit, visible, formatDuration, limitPercent, sessionElapsed, petState, petRows, windowShort, resetLabel, sessionName, activityText, permissionText, shortDuration, runningCount, depletionTime, visibleRecords, visibleSessions, agentLabel, limitRecords, pickRecord, keepLimits, jsonFiles, usageRecords, dayRows, modelRows, focusPhase, focusClock, claimOnce, focusMessage }")()
 let failures = 0
 
 function expect(name, actual, expected) {
@@ -142,6 +142,26 @@ expect("model rows sorted, top 4, scaled", Model.modelRows(byModel), [
   { id: "c", total: 5, share: 0.0125 }, { id: "e", total: 2, share: 0.005 },
 ])
 expect("no model usage", Model.modelRows(undefined), [])
+
+// Foco/pomodoro: fase calculada só pelo início e pelas durações, sobrevive ao painel fechado
+const min = 60000
+const focus = { work_min: 25, break_min: 5, rounds: 2, started_at: 0, paused_at: null }
+expect("focus starts in work", Model.focusPhase(focus, 10 * min), { phase: "work", round: 1, remainingMs: 15 * min, share: 0.4, rounds: 2, paused: false })
+expect("focus break after work", Model.focusPhase(focus, 27 * min), { phase: "break", round: 1, remainingMs: 3 * min, share: 0.4, rounds: 2, paused: false })
+expect("focus second round", Model.focusPhase(focus, 30 * min).round, 2)
+expect("no break after last round", Model.focusPhase(focus, 55 * min).phase, "done")
+expect("paused focus stops the clock", Model.focusPhase({ ...focus, paused_at: 10 * min }, 20 * min).remainingMs, 15 * min)
+expect("paused flag", Model.focusPhase({ ...focus, paused_at: 10 * min }, 20 * min).paused, true)
+expect("no focus", Model.focusPhase({}, 0), null)
+expect("focus clock", Model.focusClock(15 * min + 4000), "15:04")
+expect("focus clock rounds seconds up", Model.focusClock(1500), "0:02")
+expect("focusing pet", Model.petState([{ status: "working" }], [], 0, true), "focus")
+expect("attention wins over focus", Model.petState([{ status: "attention" }], [], 0, true), "attention")
+expect("claim once per key", [Model.claimOnce("a"), Model.claimOnce("a"), Model.claimOnce("b")], [true, false, true])
+
+expect("work message", Model.focusMessage({ phase: "work", round: 2, rounds: 4 }, focus), "Foco: rodada 2/4 · 25 min")
+expect("break message", Model.focusMessage({ phase: "break", round: 1, rounds: 4 }, focus), "Pausa de 5 min · rodada 1/4 concluída")
+expect("done message", Model.focusMessage({ phase: "done", round: 4, rounds: 4 }, focus), "Foco concluído · 4 rodadas")
 
 if (failures) process.exit(1)
 console.log("checks passed")

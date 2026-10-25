@@ -80,6 +80,14 @@ class NotificationTests(unittest.TestCase):
         self.assertEqual(self.session()["status"], "attention")
         run.assert_not_called()
 
+    def test_discreet_mode_silences_permission_requests(self):
+        self.config.write_text(json.dumps({"discreet": True}))
+        event = {"hook_event_name": "PermissionRequest", "session_id": "s1", "tool_name": "Bash", "tool_input": {"command": "ls"}}
+        with patch("agent_pet.hooks.subprocess.run") as run:
+            self.assertEqual(handle_event(event, self.state, self.config, now_ms=2000), 0)
+        self.assertEqual(self.session()["status"], "attention")
+        run.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

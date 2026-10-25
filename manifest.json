@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.marlonazevedo.agent-pet",
   "name": "Retro Agent Pet",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": "Marlon Azevedo",
   "license": "MIT",
   "description": "A tiny retro computer on the bar that watches your local Claude Code and Codex sessions: who is working, who needs you, usage limits per agent and today's summary.",

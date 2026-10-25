@@ -19,6 +19,13 @@ Panel {
   readonly property string configPath: (Quickshell.env("XDG_CONFIG_HOME") || home + "/.config") + "/agent-pet/config.json"
   property var config: ({})
   readonly property var hiddenAgents: Array.isArray(config.hidden_agents) ? config.hidden_agents : []
+  // Modo discreto: sem notificações e sem piscar o ícone
+  readonly property bool discreet: config.discreet === true
+  // Foco/pomodoro gravado em focus.json: continua com o painel fechado ou o shell reiniciado
+  property var pomodoro: ({})
+  readonly property var focusInfo: Model.focusPhase(pomodoro, nowMs)
+  readonly property bool focusing: !!focusInfo && focusInfo.phase === "work" && !focusInfo.paused
+  property string focusKey: ""
   // Tela do painel: home, sessions, limits, usage, agents, attention ou about
   property string screen: "home"
   property var sessionFiles: []
@@ -38,7 +45,7 @@ Panel {
   readonly property var orderedSessions: Model.sortSessions(shownSessions)
   readonly property bool attention: Model.hasAttention(shownSessions)
   readonly property bool alarm: attention || Model.alarmingLimit(allLimits, 90)
-  readonly property string computedPetState: Model.petState(shownSessions, allLimits, nowMs)
+  readonly property string computedPetState: Model.petState(shownSessions, allLimits, nowMs, focusing)
   property string petState: "idle"
   readonly property color secondTint: Qt.hsla((Math.max(0, Commons.Color.accent.hslHue) + 0.12) % 1, Math.max(0.35, Commons.Color.accent.hslSaturation), Commons.Color.accent.hslLightness, 1)
   // Gráficos por agente: o seletor escolhe de quem são os limites mostrados
@@ -138,19 +145,66 @@ Panel {
       catch (error) { root.config = ({}) }
     }
   }
-  // Mostra ou oculta um agente nas telas; preserva as demais chaves do config
+  // Grava uma chave do config preservando as demais
+  function setConfig(key, value) {
+    var change = {}
+    change[key] = value
+    var next = Object.assign({}, config, change)
+    config = next
+    configFile.setText(JSON.stringify(next, null, 2) + "\n")
+  }
+  // Mostra ou oculta um agente nas telas
   function toggleAgent(id) {
     var hidden = hiddenAgents.slice()
     var index = hidden.indexOf(id)
     if (index < 0) hidden.push(id)
     else hidden.splice(index, 1)
-    var next = Object.assign({}, config, { hidden_agents: hidden })
-    config = next
-    configFile.setText(JSON.stringify(next, null, 2) + "\n")
+    setConfig("hidden_agents", hidden)
+  }
+
+  FileView {
+    id: focusFile
+    path: root.stateHome + "/agent-pet/focus.json"
+    watchChanges: true
+    atomicWrites: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      try { root.pomodoro = JSON.parse(String(text() || "{}")) || ({}) }
+      catch (error) { root.pomodoro = ({}) }
+    }
+  }
+  function writeFocus(next) {
+    pomodoro = next
+    focusFile.setText(JSON.stringify(next) + "\n")
+  }
+  function startFocus(work, rest) {
+    writeFocus({ work_min: work, break_min: rest, rounds: Number(config.focus_rounds) || 4, started_at: Date.now(), paused_at: null })
+  }
+  function pauseFocus() { writeFocus(Object.assign({}, pomodoro, { paused_at: Date.now() })) }
+  // Continuar desloca o início pelo tempo pausado
+  function resumeFocus() {
+    writeFocus(Object.assign({}, pomodoro, { started_at: pomodoro.started_at + Date.now() - pomodoro.paused_at, paused_at: null }))
+  }
+  function stopFocus() { writeFocus({}) }
+
+  Process { id: notifier }
+  // Avisa ao entrar em cada etapa; a primeira leitura (início ou shell reiniciado) só registra
+  onFocusInfoChanged: {
+    var info = root.focusInfo
+    var key = info ? root.pomodoro.started_at + ":" + info.phase + ":" + info.round : ""
+    if (key === root.focusKey) return
+    var first = root.focusKey === ""
+    root.focusKey = key
+    if (!info) return
+    if (info.phase === "done") root.stopFocus()
+    if (first || root.discreet || !Model.claimOnce(key)) return
+    notifier.command = ["notify-send", "-a", "Retro Agent Pet", "Retro Agent Pet", Model.focusMessage(info, root.pomodoro)]
+    notifier.running = true
   }
 
   Timer {
-    interval: 1500
+    interval: 1000
     running: true
     repeat: true
     triggeredOnStart: true
@@ -162,8 +216,8 @@ Panel {
   }
 
   // Fica na barra com sessões ou com uso registrado, no lugar do widget Agents
-  visible: shownSessions.length > 0 || usageList.length > 0
-  implicitWidth: button.implicitWidth
+  visible: shownSessions.length > 0 || usageList.length > 0 || !!focusInfo
+  implicitWidth: button.implicitWidth + (focusCount.visible ? focusCount.implicitWidth + 4 : 0)
   implicitHeight: button.implicitHeight
 
   function open() { root.controller.show() }
@@ -260,6 +314,35 @@ Panel {
     Text { visible: limitBar.labels; text: Math.round(limitBar.percent) + "%"; color: root.foreground; font.pixelSize: 12; font.bold: true }
   }
 
+  // Botão em forma de chip; strong destaca o selecionado
+  component ActionChip: Rectangle {
+    id: chip
+    required property string label
+    property bool strong: false
+    signal clicked()
+    implicitWidth: chipText.implicitWidth + 16
+    implicitHeight: 22
+    radius: 11
+    color: strong ? Qt.alpha(Commons.Color.accent, 0.2) : Qt.alpha(root.foreground, chipHover.hovered ? 0.12 : 0.06)
+    Text { id: chipText; anchors.centerIn: parent; text: chip.label; color: chip.strong ? Commons.Color.accent : root.dim; font.pixelSize: 11; font.bold: chip.strong }
+    TapHandler { onTapped: chip.clicked() }
+    HoverHandler { id: chipHover; cursorShape: Qt.PointingHandCursor }
+  }
+
+  // Chave liga/desliga
+  component Toggle: Rectangle {
+    id: toggleSwitch
+    property bool on: false
+    signal toggled()
+    width: 34
+    height: 18
+    radius: 9
+    color: on ? Commons.Color.accent : Qt.alpha(root.foreground, 0.2)
+    Rectangle { width: 14; height: 14; radius: 7; y: 2; x: toggleSwitch.on ? parent.width - width - 2 : 2; color: root.surface }
+    TapHandler { onTapped: toggleSwitch.toggled() }
+    HoverHandler { cursorShape: Qt.PointingHandCursor }
+  }
+
   // Seletor de agente dos gráficos; some quando só há um agente na lista
   component AgentTabs: RowLayout {
     id: tabs
@@ -270,18 +353,12 @@ Panel {
     spacing: 6
     Repeater {
       model: tabs.records.length
-      delegate: Rectangle {
-        id: chip
+      delegate: ActionChip {
         required property int index
         readonly property var record: tabs.records[index]
-        readonly property bool current: tabs.picked && tabs.picked.id === record.id
-        implicitWidth: chipText.implicitWidth + 16
-        implicitHeight: 22
-        radius: 11
-        color: current ? Qt.alpha(Commons.Color.accent, 0.2) : Qt.alpha(root.foreground, 0.06)
-        Text { id: chipText; anchors.centerIn: parent; text: chip.record.name || chip.record.id; color: chip.current ? Commons.Color.accent : root.dim; font.pixelSize: 11; font.bold: chip.current }
-        TapHandler { onTapped: root.selectedAgent = chip.record.id }
-        HoverHandler { cursorShape: Qt.PointingHandCursor }
+        label: record.name || record.id
+        strong: !!tabs.picked && tabs.picked.id === record.id
+        onClicked: root.selectedAgent = record.id
       }
     }
   }
@@ -366,7 +443,10 @@ Panel {
 
   BarIconButton {
     id: button
-    anchors.fill: parent
+    anchors.left: parent.left
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    width: implicitWidth
     bar: root.bar
     iconComponent: Component {
       Pet {
@@ -387,12 +467,26 @@ Panel {
       else root.toggle()
     }
     SequentialAnimation on opacity {
-      running: root.attention
+      running: root.attention && !root.discreet
       loops: Animation.Infinite
       NumberAnimation { to: 0.45; duration: 450 }
       NumberAnimation { to: 1; duration: 450 }
       onStopped: button.opacity = 1
     }
+  }
+
+  // Minutos restantes do foco ao lado do ícone (barra horizontal)
+  Text {
+    id: focusCount
+    visible: !!root.focusInfo && !(root.bar && root.bar.vertical)
+    anchors.left: button.right
+    anchors.leftMargin: 2
+    anchors.verticalCenter: parent.verticalCenter
+    text: root.focusInfo ? (root.focusInfo.paused ? "❚❚" : Math.ceil(root.focusInfo.remainingMs / 60000) + "m") : ""
+    color: root.focusInfo && root.focusInfo.phase === "break" ? root.dim : root.foreground
+    font.family: root.bar ? root.bar.fontFamily : ""
+    font.pixelSize: 12
+    TapHandler { onTapped: root.toggle() }
   }
 
   PopupCard {
@@ -450,6 +544,59 @@ Panel {
             }
           }
           Text { text: "Sem dados de limite"; visible: root.agentLimits.length === 0; color: root.dim; Layout.alignment: Qt.AlignHCenter }
+          // Foco/pomodoro: atalhos para iniciar; em andamento, etapa, tempo e controles
+          Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: focusColumn.implicitHeight + 16
+            radius: 6
+            color: Qt.alpha(root.foreground, 0.05)
+            ColumnLayout {
+              id: focusColumn
+              anchors.fill: parent
+              anchors.margins: 8
+              spacing: 6
+              RowLayout {
+                visible: !root.focusInfo
+                Layout.fillWidth: true
+                spacing: 6
+                Text { text: "Foco"; color: root.foreground; font.pixelSize: 13; font.bold: true }
+                Text { text: "× " + (Number(root.config.focus_rounds) || 4); color: root.dim; font.pixelSize: 11 }
+                Item { Layout.fillWidth: true }
+                ActionChip { label: "25/5"; onClicked: root.startFocus(25, 5) }
+                ActionChip { label: "50/10"; onClicked: root.startFocus(50, 10) }
+              }
+              RowLayout {
+                visible: !!root.focusInfo
+                Layout.fillWidth: true
+                Text {
+                  text: root.focusInfo ? (root.focusInfo.phase === "break" ? "Pausa " : "Foco ") + root.focusInfo.round + "/" + root.focusInfo.rounds + (root.focusInfo.paused ? " · pausado" : "") : ""
+                  color: root.focusInfo && root.focusInfo.phase === "break" ? root.dim : root.foreground
+                  font.pixelSize: 13
+                  font.bold: true
+                }
+                Item { Layout.fillWidth: true }
+                Text { text: root.focusInfo ? Model.focusClock(root.focusInfo.remainingMs) : ""; color: root.foreground; font.pixelSize: 18; font.bold: true }
+              }
+              Rectangle {
+                visible: !!root.focusInfo
+                Layout.fillWidth: true
+                Layout.preferredHeight: 5
+                radius: 3
+                color: Qt.alpha(root.foreground, 0.12)
+                Rectangle { width: parent.width * (root.focusInfo ? root.focusInfo.share : 0); height: parent.height; radius: 3; color: root.focusInfo && root.focusInfo.phase === "break" ? root.secondTint : Commons.Color.accent }
+              }
+              RowLayout {
+                visible: !!root.focusInfo
+                Layout.alignment: Qt.AlignHCenter
+                spacing: 6
+                ActionChip {
+                  label: root.focusInfo && root.focusInfo.paused ? "Continuar" : "Pausar"
+                  onClicked: root.focusInfo.paused ? root.resumeFocus() : root.pauseFocus()
+                }
+                ActionChip { label: "Parar"; onClicked: root.stopFocus() }
+              }
+            }
+          }
           Text {
             Layout.fillWidth: true
             horizontalAlignment: Text.AlignHCenter
@@ -709,22 +856,30 @@ Panel {
                   Layout.fillWidth: true
                 }
               }
-              Rectangle {
+              Toggle {
                 id: toggle
                 anchors.right: parent.right
                 anchors.rightMargin: 10
                 anchors.verticalCenter: parent.verticalCenter
-                width: 34
-                height: 18
-                radius: 9
-                color: agentCard.shown ? Commons.Color.accent : Qt.alpha(root.foreground, 0.2)
-                Rectangle { width: 14; height: 14; radius: 7; y: 2; x: agentCard.shown ? parent.width - width - 2 : 2; color: root.surface }
-                TapHandler { onTapped: root.toggleAgent(agentCard.modelData.id) }
-                HoverHandler { cursorShape: Qt.PointingHandCursor }
+                on: agentCard.shown
+                onToggled: root.toggleAgent(agentCard.modelData.id)
               }
             }
           }
           Text { text: "Nenhum agente encontrado"; visible: root.usageRecords.length === 0; color: root.dim; Layout.alignment: Qt.AlignHCenter }
+          RowLayout {
+            Layout.fillWidth: true
+            Layout.topMargin: 4
+            Layout.leftMargin: 10
+            Layout.rightMargin: 10
+            ColumnLayout {
+              Layout.fillWidth: true
+              spacing: 0
+              Text { text: "Modo discreto"; color: root.foreground; font.pixelSize: 14; font.bold: true }
+              Text { text: "Sem notificações e sem piscar o ícone"; color: root.dim; font.pixelSize: 11 }
+            }
+            Toggle { on: root.discreet; onToggled: root.setConfig("discreet", !root.discreet) }
+          }
           Text { text: "Agentes ocultos saem das telas de início, sessões e limites."; color: root.dim; font.pixelSize: 11; wrapMode: Text.Wrap; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
         }
 

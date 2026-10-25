@@ -18,7 +18,11 @@ A small menu at the bottom of the panel switches between:
 
 - **Início** — the pet, one circular gauge per usage window of the selected
   agent (Claude Code 5h/7d, Codex 30d) and today's completed replies and active
-  time.
+  time, plus a focus timer (pomodoro): pick 25/5 or 50/10, then pause, resume
+  or stop. Minutes left show next to the bar icon, the pet wears headphones while
+  you focus and a notification marks each step. The timer lives in
+  `~/.local/state/agent-pet/focus.json`, so it keeps running with the panel
+  closed or the shell restarted.
 - **Sessões** — one card per session: project, agent, current activity
   (`Editando Hero.tsx`, `Bash · npm test`) and how long it has been running.
 - **Limites** — the main window of the selected agent in a big gauge and, when
@@ -29,7 +33,8 @@ A small menu at the bottom of the panel switches between:
 - **Pedido** — opens by itself when a session asks for permission: project,
   the requested command (`Bash: npm run migrate`) and how long it has waited.
 - **Agentes** — every agent Omarchy tracks, with a switch to hide it (and its
-  sessions and gauges) from the other screens.
+  sessions and gauges) from the other screens, and the **discreet mode** switch:
+  no notifications and no blinking icon.
 - **ⓘ Sobre** — version, license and credits: author, e-mail and project links.
 
 ## Install
@@ -46,7 +51,13 @@ and your existing hooks are kept. Codex runs new hooks only after you review and
 trust them: open Codex and run `/hooks`.
 
 Left click opens the panel; right click launches your default agent
-(`omarchy-agent --pick`), like the Agents widget.
+(`omarchy-agent --pick`), like the Agents widget. To open it from the keyboard,
+add a binding to `~/.config/hypr/bindings.lua` (pick a free key with
+`omarchy menu keybindings --print`):
+
+```lua
+o.bind("SUPER + ALT + A", "Retro Agent Pet", "omarchy-shell shell toggle io.github.marlonazevedo.agent-pet")
+```
 
 The widget stays hidden until a session starts or Omarchy has recorded agent
 usage. It loads the Agents widget's data layer (`plugins/agents/Main.qml` from
@@ -94,6 +105,8 @@ tool name and folder.
 |---|---|---|
 | `notifications_enabled` | `true` | Desktop notification when an agent needs you. |
 | `hidden_agents` | `[]` | Agent ids hidden in the panel; managed by the **Agentes** screen. |
+| `discreet` | `false` | Discreet mode: no notifications, no blinking icon; managed by the **Agentes** screen. |
+| `focus_rounds` | `4` | Focus rounds per timer. |
 
 ## Development
 
@@ -112,7 +125,7 @@ hot reload keeps components it already compiled.
 Retro Agent Pet é um computadorzinho na barra do Omarchy que acompanha as sessões
 locais do Claude Code e do Codex: quem está trabalhando, quem precisa de você,
 os limites e o uso de cada agente (tokens por dia e por modelo) e o resumo do
-dia. O clique direito abre o agente padrão, e o widget Agents do Omarchy pode
+dia, com um timer de foco (pomodoro) e um modo discreto. O clique direito abre o agente padrão, e o widget Agents do Omarchy pode
 ser desativado. Instale com os dois comandos
 da seção **Install**, aprove os hooks no Codex com `/hooks` e pronto. Tudo fica
 na sua máquina.

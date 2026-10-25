@@ -94,7 +94,8 @@ def _notification_enabled(config_path):
         config = _read_json(config_path, {"notifications_enabled": True})
     except (OSError, ValueError):
         return True
-    return config.get("notifications_enabled") is not False
+    # Modo discreto (aba Agentes) também silencia os avisos
+    return config.get("notifications_enabled") is not False and config.get("discreet") is not True
 
 
 def _valid_session_id(value):
