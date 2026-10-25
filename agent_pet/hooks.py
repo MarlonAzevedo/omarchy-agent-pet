@@ -27,6 +27,7 @@ EVENTS = {
 AGENTS = {"claude", "codex"}
 ATTENTION_NOTIFICATIONS = {"idle_prompt", "agent_needs_input"}
 DETAIL_LIMIT = 60
+APP_NAME = "Retro Agent Pet"
 FILE_TOOLS = {"Edit": "file_path", "MultiEdit": "file_path", "Write": "file_path", "Read": "file_path", "NotebookEdit": "notebook_path"}
 PATCH_FILE = re.compile(r"^\*\*\* (?:Update|Add|Delete) File: (.+)$", re.MULTILINE)
 TEXT_TOOLS = {"Bash": "command", "Grep": "pattern", "Glob": "pattern", "WebSearch": "query", "Task": "description", "Agent": "description"}
@@ -260,7 +261,7 @@ def handle_event(event, state_root=None, config_path=None, now_ms=None, agent="c
                 if _notification_enabled(config_path):
                     tool_name = event.get("tool_name") or "Claude Code"
                     cwd = event.get("cwd") or session.get("cwd") or ""
-                    notification = ["notify-send", f"Agent Pet · {tool_name}", cwd]
+                    notification = ["notify-send", f"{APP_NAME} · {tool_name}", cwd]
             elif event_name == "Notification":
                 notification_type = event.get("notification_type")
                 if notification_type == "permission_prompt":
@@ -271,7 +272,7 @@ def handle_event(event, state_root=None, config_path=None, now_ms=None, agent="c
                 if _notification_enabled(config_path):
                     notification = [
                         "notify-send",
-                        event.get("title") or "Agent Pet",
+                        event.get("title") or APP_NAME,
                         event.get("message") or "Claude Code precisa de você",
                     ]
 

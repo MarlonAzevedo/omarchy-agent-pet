@@ -19,12 +19,14 @@ Panel {
   readonly property string configPath: (Quickshell.env("XDG_CONFIG_HOME") || home + "/.config") + "/agent-pet/config.json"
   property var config: ({})
   readonly property var hiddenAgents: Array.isArray(config.hidden_agents) ? config.hidden_agents : []
-  // Tela do painel: home, sessions, limits, usage, agents ou attention
+  // Tela do painel: home, sessions, limits, usage, agents, attention ou about
   property string screen: "home"
   property var sessionFiles: []
   property var sessions: []
   property var usageRecords: []
   property var daily: ({ date: "", completed_responses: 0, active_seconds: 0 })
+  // Nome, versão, autor, licença e link da tela Sobre
+  property var manifest: ({})
   property double nowMs: Date.now()
 
   readonly property color foreground: bar ? bar.foreground : Commons.Color.foreground
@@ -114,6 +116,14 @@ Panel {
     onLoaded: {
       try { root.daily = JSON.parse(String(text() || "{}")) }
       catch (error) { root.daily = ({ date: "", completed_responses: 0, active_seconds: 0 }) }
+    }
+  }
+  FileView {
+    path: Qt.resolvedUrl("manifest.json").toString().replace("file://", "")
+    printErrors: false
+    onLoaded: {
+      try { root.manifest = JSON.parse(String(text() || "{}")) || ({}) }
+      catch (error) { root.manifest = ({}) }
     }
   }
   FileView {
@@ -301,6 +311,27 @@ Panel {
   // Tokens no formato do Omarchy (1.5M); sem o Main.qml, o número cru
   function tokens(count) { return root.usage ? root.usage.formatTokenCount(Number(count || 0)) : String(Number(count || 0)) }
 
+  // Linha de crédito da tela Sobre; com url, abre no navegador ou no e-mail
+  component CreditRow: RowLayout {
+    id: credit
+    required property string label
+    required property string value
+    property string url: ""
+    Layout.fillWidth: true
+    spacing: 8
+    Text { text: credit.label; color: root.dim; font.pixelSize: 12; Layout.preferredWidth: 70 }
+    Text {
+      text: credit.value
+      color: credit.url ? Commons.Color.accent : root.foreground
+      font.pixelSize: 12
+      font.underline: credit.url !== "" && link.hovered
+      elide: Text.ElideRight
+      Layout.fillWidth: true
+      HoverHandler { id: link; enabled: credit.url !== ""; cursorShape: Qt.PointingHandCursor }
+      TapHandler { enabled: credit.url !== ""; onTapped: Qt.openUrlExternally(credit.url) }
+    }
+  }
+
   // Item do menu inferior
   component MenuItem: Item {
     id: menuItem
@@ -308,12 +339,12 @@ Panel {
     required property string label
     property bool badge: false
     readonly property bool current: root.screen === target
-    // Largura pelo texto: com 6 itens, partes iguais encostariam os rótulos longos
+    // Largura pelo texto: partes iguais encostariam os rótulos longos (Sobre é só o ícone ⓘ)
     Layout.fillWidth: true
     implicitWidth: menuLabel.implicitWidth + 8
     implicitHeight: 28
     Rectangle { anchors.fill: parent; radius: 6; color: Qt.alpha(Commons.Color.accent, menuItem.current ? 0.18 : (hover.hovered ? 0.08 : 0)) }
-    Text { id: menuLabel; anchors.centerIn: parent; text: menuItem.label; color: menuItem.current ? Commons.Color.accent : root.dim; font.pixelSize: 12; font.bold: menuItem.current }
+    Text { id: menuLabel; anchors.centerIn: parent; text: menuItem.label; color: menuItem.current ? Commons.Color.accent : root.dim; font.pixelSize: 11; font.bold: menuItem.current }
     Rectangle { visible: menuItem.badge; width: 6; height: 6; radius: 3; color: root.urgent; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 4 }
     HoverHandler { id: hover; cursorShape: Qt.PointingHandCursor }
     TapHandler { onTapped: root.screen = menuItem.target }
@@ -697,6 +728,57 @@ Panel {
           Text { text: "Agentes ocultos saem das telas de início, sessões e limites."; color: root.dim; font.pixelSize: 11; wrapMode: Text.Wrap; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
         }
 
+        // Sobre: créditos do autor e do projeto
+        ColumnLayout {
+          id: aboutScreen
+          visible: root.screen === "about"
+          Layout.fillWidth: true
+          spacing: 8
+          readonly property string homepage: root.manifest.homepage || ""
+          ScreenHeader { title: "Sobre" }
+          Pet {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.preferredWidth: 56
+            Layout.preferredHeight: 56
+            petState: "idle"
+            inkColor: root.surface
+            outlineColor: root.dim
+            bodyColor: root.foreground
+            faceColor: Commons.Color.accent
+            accentColor: Commons.Color.accent
+            warningColor: root.urgent
+          }
+          Text { text: root.manifest.name || "Retro Agent Pet"; color: root.foreground; font.pixelSize: 16; font.bold: true; Layout.alignment: Qt.AlignHCenter }
+          Text {
+            text: ["versão " + (root.manifest.version || "?"), root.manifest.license ? "licença " + root.manifest.license : ""].filter(function(item) { return item }).join(" · ")
+            color: root.dim
+            font.pixelSize: 12
+            Layout.alignment: Qt.AlignHCenter
+          }
+          Text {
+            text: "Acompanha as sessões do Claude Code e do Codex, os pedidos de permissão, os limites e o uso de cada agente."
+            color: root.dim
+            font.pixelSize: 11
+            wrapMode: Text.Wrap
+            horizontalAlignment: Text.AlignHCenter
+            Layout.fillWidth: true
+          }
+          Rectangle { Layout.fillWidth: true; height: 1; color: root.dim; opacity: 0.2 }
+          CreditRow { label: "Criado por"; value: root.manifest.author || "Marlon Azevedo" }
+          CreditRow { label: "E-mail"; value: "foxwnobr@gmail.com"; url: "mailto:foxwnobr@gmail.com" }
+          CreditRow { visible: aboutScreen.homepage !== ""; label: "GitHub"; value: aboutScreen.homepage.split("/")[3] || ""; url: aboutScreen.homepage.split("/").slice(0, 4).join("/") }
+          CreditRow { visible: aboutScreen.homepage !== ""; label: "Projeto"; value: aboutScreen.homepage.split("/")[4] || ""; url: aboutScreen.homepage }
+          CreditRow { visible: aboutScreen.homepage !== ""; label: "Problemas"; value: "abrir uma issue"; url: aboutScreen.homepage + "/issues" }
+          Text {
+            text: "Uso e limites: coletores do widget Agents do Omarchy. Inspirado no Mupli."
+            color: root.dim
+            font.pixelSize: 11
+            wrapMode: Text.Wrap
+            horizontalAlignment: Text.AlignHCenter
+            Layout.fillWidth: true
+          }
+        }
+
         // Menu inferior
         Rectangle { Layout.fillWidth: true; height: 1; color: root.dim; opacity: 0.35 }
         RowLayout {
@@ -708,6 +790,7 @@ Panel {
           MenuItem { target: "usage"; label: "Uso" }
           MenuItem { target: "agents"; label: "Agentes" }
           MenuItem { target: "attention"; label: "Pedido"; visible: root.attention }
+          MenuItem { target: "about"; label: "ⓘ" }
         }
       }
     }

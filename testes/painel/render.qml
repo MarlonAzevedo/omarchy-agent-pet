@@ -7,7 +7,7 @@ Window {
   width: 400; height: 700; visible: true; color: "#000"
   Loader { id: loader; source: "../../Panel.qml" }
   // "tela@agente" escolhe o agente dos gráficos
-  property var screens: ["home", "sessions", "limits", "attention", "agents", "home@codex", "limits@codex", "usage", "usage@codex"]
+  property var screens: ["home", "sessions", "limits", "attention", "agents", "home@codex", "limits@codex", "usage", "usage@codex", "about"]
   readonly property string outDir: Qt.application.arguments[Qt.application.arguments.length - 1]
   property int step: 0
   // Últimos 7 dias terminando hoje
@@ -40,6 +40,8 @@ Window {
           { session_id: "b", agent: "codex", status: "working", cwd: "/x/worker", current_tool: "Bash", tool_detail: "npm test", activity_started_at: now - 20000, updated_at: now - 1 },
           { session_id: "c", status: "attention", attention_reason: "permission", cwd: "/x/checkout", current_tool: "Bash", tool_detail: "npm run migrate", activity_started_at: now - 30000, updated_at: now - 2 } ]
         p.config = ({ hidden_agents: ["fireworks"] })
+        // O FileView de teste não lê arquivos; o manifest real vem daqui
+        p.manifest = ({ name: "Retro Agent Pet", version: "0.2.0", author: "Marlon Azevedo", license: "MIT", homepage: "https://github.com/MarlonAzevedo/omarchy-retro-agent-pet" })
         p.daily = ({ completed_responses: 12, active_seconds: 5400 })
         return
       }

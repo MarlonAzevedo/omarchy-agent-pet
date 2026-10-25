@@ -1,10 +1,10 @@
-# Agent Pet
+# Retro Agent Pet
 
 **A tiny retro computer on the Omarchy bar that keeps an eye on your coding agents.**
 
-![Agent Pet panel: home with usage gauges, sessions and limits](preview.png)
+![Retro Agent Pet panel: home with usage gauges, sessions and limits](preview.png)
 
-Agent Pet watches your local **Claude Code** and **Codex** sessions and shows,
+Retro Agent Pet watches your local **Claude Code** and **Codex** sessions and shows,
 at a glance, who is working, who is waiting for you and how much of each
 agent's usage limit is left. The little computer on the bar changes face with
 the state of your sessions: it works, celebrates, sleeps, and blinks red when an
@@ -30,11 +30,12 @@ A small menu at the bottom of the panel switches between:
   the requested command (`Bash: npm run migrate`) and how long it has waited.
 - **Agentes** — every agent Omarchy tracks, with a switch to hide it (and its
   sessions and gauges) from the other screens.
+- **ⓘ Sobre** — version, license and credits: author, e-mail and project links.
 
 ## Install
 
 ```bash
-omarchy plugin add https://github.com/MarlonAzevedo/omarchy-agent-pet.git --enable
+omarchy plugin add https://github.com/MarlonAzevedo/omarchy-retro-agent-pet.git --enable
 ~/.config/omarchy/plugins/io.github.marlonazevedo.agent-pet/bin/agent-pet setup
 ```
 
@@ -108,13 +109,22 @@ hot reload keeps components it already compiled.
 
 ## Português
 
-Agent Pet é um computadorzinho na barra do Omarchy que acompanha as sessões
+Retro Agent Pet é um computadorzinho na barra do Omarchy que acompanha as sessões
 locais do Claude Code e do Codex: quem está trabalhando, quem precisa de você,
 os limites e o uso de cada agente (tokens por dia e por modelo) e o resumo do
 dia. O clique direito abre o agente padrão, e o widget Agents do Omarchy pode
 ser desativado. Instale com os dois comandos
 da seção **Install**, aprove os hooks no Codex com `/hooks` e pronto. Tudo fica
 na sua máquina.
+
+## Credits
+
+Created by **Marlon Azevedo** — <foxwnobr@gmail.com> ·
+[github.com/MarlonAzevedo](https://github.com/MarlonAzevedo).
+Bugs and ideas: [open an issue](https://github.com/MarlonAzevedo/omarchy-retro-agent-pet/issues).
+
+Usage and limits come from the collectors of Omarchy's Agents widget. Inspired
+by [Mupli](https://mupli.io).
 
 ## License
 
