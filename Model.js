@@ -158,6 +158,18 @@ function pickRecord(records, id) {
   return list.length ? list[0] : null
 }
 
+// Falha passageira do coletor grava limites vazios; mantém os últimos bons até maxAgeMs
+function keepLimits(previous, current, now, maxAgeMs) {
+  return (current || []).map(function(record) {
+    if (record.limits && record.limits.length) return record
+    var old = (previous || []).filter(function(item) { return item.id === record.id })[0]
+    if (!old || !old.limits || !old.limits.length) return record
+    var limitsAt = old.limitsAt || old.updatedAt
+    if (now - Date.parse(limitsAt) > maxAgeMs) return record
+    return Object.assign({}, record, { limits: old.limits, tierLabel: record.tierLabel || old.tierLabel, limitsAt: limitsAt })
+  })
+}
+
 function visibleRecords(records, hidden) {
   return (records || []).filter(function(record) { return (hidden || []).indexOf(record.id) < 0 })
 }

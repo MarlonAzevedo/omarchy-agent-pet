@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs"
 const source = readFileSync(new URL("../Model.js", import.meta.url), "utf8").replace(/^\.pragma library\s*/, "")
-const Model = new Function(source + "; return { sortSessions, hasAttention, alarmingLimit, visible, formatDuration, limitPercent, sessionElapsed, petState, petRows, windowShort, resetLabel, sessionName, activityText, permissionText, shortDuration, runningCount, depletionTime, visibleRecords, visibleSessions, agentLabel, limitRecords, pickRecord }")()
+const Model = new Function(source + "; return { sortSessions, hasAttention, alarmingLimit, visible, formatDuration, limitPercent, sessionElapsed, petState, petRows, windowShort, resetLabel, sessionName, activityText, permissionText, shortDuration, runningCount, depletionTime, visibleRecords, visibleSessions, agentLabel, limitRecords, pickRecord, keepLimits }")()
 let failures = 0
 
 function expect(name, actual, expected) {
@@ -99,6 +99,19 @@ expect("hidden agent is not selectable", Model.limitRecords(usage, ["claude"]).m
 expect("selected agent is picked", Model.pickRecord(Model.limitRecords(usage, []), "codex").id, "codex")
 expect("unknown selection falls back to first", Model.pickRecord(Model.limitRecords(usage, []), "fireworks").id, "claude")
 expect("no records picks nothing", Model.pickRecord([], "codex"), null)
+
+// Coletor do Omarchy grava limites vazios quando o Codex demora no account/read
+const good = [{ id: "codex", updatedAt: "2026-10-25T20:00:00Z", tierLabel: "free", limits: [{ label: "720h window", percent: 0.62 }] }]
+const blank = [{ id: "codex", updatedAt: "2026-10-25T20:15:00Z", tierLabel: "", limits: [] }]
+const at = iso => Date.parse(iso)
+const kept = Model.keepLimits(good, blank, at("2026-10-25T20:15:00Z"), 1800000)
+expect("transient failure keeps last limits", kept[0].limits, good[0].limits)
+expect("transient failure keeps tier", kept[0].tierLabel, "free")
+expect("kept record stays selectable", Model.limitRecords(kept, []).map(record => record.id), ["codex"])
+const later = Model.keepLimits(kept, blank, at("2026-10-25T20:45:00Z"), 1800000)
+expect("old limits expire by original time", later[0].limits, [])
+expect("fresh limits win", Model.keepLimits(blank, good, at("2026-10-25T20:15:00Z"), 1800000)[0].limits, good[0].limits)
+expect("no previous keeps current", Model.keepLimits([], blank, at("2026-10-25T20:15:00Z"), 1800000)[0].limits, [])
 
 if (failures) process.exit(1)
 console.log("checks passed")

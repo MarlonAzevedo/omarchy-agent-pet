@@ -108,7 +108,7 @@ Panel {
       var record = usageInstantiator.objectAt(i)
       if (record && record.record) result.push(record.record)
     }
-    usageRecords = result
+    usageRecords = Model.keepLimits(usageRecords, result, Date.now(), 1800000)
   }
   function readDaily() {
     dailyFile.path = stateHome + "/agent-pet/day/" + Qt.formatDate(new Date(), "yyyy-MM-dd") + ".json"
