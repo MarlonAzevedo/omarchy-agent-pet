@@ -69,6 +69,8 @@ function windowShort(label) {
   return hours >= 24 && hours % 24 === 0 ? hours / 24 + "d" : hours + "h"
 }
 
+var DAYS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"]
+
 // Renovação: "em 2h10" até 24 h; depois "sex 19:32"
 function resetLabel(resetsAt, now) {
   if (!resetsAt) return ""
@@ -82,9 +84,8 @@ function resetLabel(resetsAt, now) {
     return "em " + Math.floor(minutes / 60) + "h" + (rest < 10 ? "0" : "") + rest
   }
   var date = new Date(time)
-  var days = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"]
   var pad = function(value) { return (value < 10 ? "0" : "") + value }
-  return days[date.getDay()] + " " + pad(date.getHours()) + ":" + pad(date.getMinutes())
+  return DAYS[date.getDay()] + " " + pad(date.getHours()) + ":" + pad(date.getMinutes())
 }
 
 function sessionName(session) {
@@ -177,6 +178,37 @@ function keepLimits(previous, current, now, maxAgeMs) {
 
 function visibleRecords(records, hidden) {
   return (records || []).filter(function(record) { return (hidden || []).indexOf(record.id) < 0 })
+}
+
+// Tela Uso: agentes visíveis que já registraram algum uso
+function usageRecords(records, hidden) {
+  return visibleRecords(records, hidden).filter(function(record) {
+    return record.todayPrompts > 0 || record.todaySessions > 0 || record.totalPrompts > 0
+      || record.totalSessions > 0 || record.activeDays > 0 || (record.limits && record.limits.length > 0)
+  })
+}
+
+// Tokens dos últimos dias; share é a fração do dia mais movimentado
+function dayRows(recentDays, today) {
+  var list = recentDays || []
+  var peak = Math.max.apply(null, [0].concat(list.map(function(day) { return Number(day.messageCount) || 0 })))
+  return list.map(function(day) {
+    var tokens = Number(day.messageCount) || 0
+    var date = new Date(day.date + "T00:00:00")
+    return { date: day.date, label: day.date === today ? "Hoje" : DAYS[date.getDay()], tokens: tokens, share: peak ? tokens / peak : 0, today: day.date === today }
+  })
+}
+
+// Os 4 modelos com mais tokens (entrada, saída e cache)
+function modelRows(modelUsage) {
+  var rows = Object.keys(modelUsage || {}).map(function(id) {
+    var bucket = modelUsage[id] || {}
+    var total = (Number(bucket.inputTokens) || 0) + (Number(bucket.outputTokens) || 0)
+      + (Number(bucket.cacheReadInputTokens) || 0) + (Number(bucket.cacheCreationInputTokens) || 0)
+    return { id: id, total: total }
+  }).sort(function(a, b) { return b.total - a.total }).slice(0, 4)
+  var peak = rows.length ? rows[0].total : 0
+  return rows.map(function(row) { return { id: row.id, total: row.total, share: peak ? row.total / peak : 0 } })
 }
 
 // Sprite 16x16 do computador antigo: O/E/C tinta, B gabinete, F tela, A destaque, X alerta, Z sono

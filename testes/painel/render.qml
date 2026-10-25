@@ -7,9 +7,13 @@ Window {
   width: 400; height: 700; visible: true; color: "#000"
   Loader { id: loader; source: "../../Panel.qml" }
   // "tela@agente" escolhe o agente dos gráficos
-  property var screens: ["home", "sessions", "limits", "attention", "agents", "home@codex", "limits@codex"]
+  property var screens: ["home", "sessions", "limits", "attention", "agents", "home@codex", "limits@codex", "usage", "usage@codex"]
   readonly property string outDir: Qt.application.arguments[Qt.application.arguments.length - 1]
   property int step: 0
+  // Últimos 7 dias terminando hoje
+  function week(tokens) {
+    return tokens.map(function(count, i) { return { date: Qt.formatDate(new Date(Date.now() - (6 - i) * 86400000), "yyyy-MM-dd"), messageCount: count } })
+  }
   function findCard(item) {
     if (!item) return null
     if (item.objectName === "card") return item
@@ -23,10 +27,13 @@ Window {
       var now = Date.now()
       if (p.sessions.length === 0) {
         p.usageRecords = [
-          { id: "claude", name: "Claude Code", tierLabel: "Pro", limits: [
+          { id: "claude", name: "Claude Code", tierLabel: "Pro", todayPrompts: 15, todaySessions: 2, todayTotalTokens: 2400000,
+            recentDays: w.week([800000, 0, 1200000, 3100000, 600000, 1900000, 2400000]),
+            modelUsage: { "Opus 5.5": { inputTokens: 900000, outputTokens: 300000, cacheReadInputTokens: 7000000 }, "Haiku 5.5": { outputTokens: 400000 } }, limits: [
             { label: "Session (5-hour)", percent: 0.78, resetsAt: new Date(now + 130 * 60000).toISOString() },
             { label: "Weekly (7-day)", percent: 0.41, resetsAt: new Date(now + 5 * 86400000).toISOString() } ] },
-          { id: "codex", name: "Codex", tierLabel: "free", limits: [{ label: "720h window", percent: 0.62, resetsAt: new Date(now + 20 * 86400000).toISOString() }] },
+          { id: "codex", name: "Codex", tierLabel: "free", todayPrompts: 4, todaySessions: 1, todayTotalTokens: 500000,
+            recentDays: w.week([0, 0, 0, 0, 0, 0, 500000]), modelUsage: { "GPT 6 Luna": { inputTokens: 400000, outputTokens: 100000 } }, limits: [{ label: "720h window", percent: 0.62, resetsAt: new Date(now + 20 * 86400000).toISOString() }] },
           { id: "fireworks", name: "Fireworks", tierLabel: "Prepaid", usageStatusText: "Fireworks unavailable", limits: [] } ]
         p.sessions = [
           { session_id: "a", status: "working", cwd: "/x/landing-page", current_tool: "Edit", tool_detail: "Hero.tsx", activity_started_at: now - 190000, updated_at: now },

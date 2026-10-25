@@ -16,15 +16,13 @@ Panel {
   readonly property string home: Quickshell.env("HOME") || ""
   readonly property string stateHome: Quickshell.env("XDG_STATE_HOME") || home + "/.local/state"
   readonly property string sessionsDir: stateHome + "/agent-pet/sessions"
-  readonly property string usageDir: stateHome + "/omarchy/agents/usage"
   readonly property string configPath: (Quickshell.env("XDG_CONFIG_HOME") || home + "/.config") + "/agent-pet/config.json"
   property var config: ({})
   readonly property var hiddenAgents: Array.isArray(config.hidden_agents) ? config.hidden_agents : []
-  // Tela do painel: home, sessions, limits, agents ou attention
+  // Tela do painel: home, sessions, limits, usage, agents ou attention
   property string screen: "home"
   property var sessionFiles: []
   property var sessions: []
-  property var usageFiles: []
   property var usageRecords: []
   property var daily: ({ date: "", completed_responses: 0, active_seconds: 0 })
   property double nowMs: Date.now()
@@ -46,6 +44,8 @@ Panel {
   readonly property var limitRecords: Model.limitRecords(usageRecords, hiddenAgents)
   readonly property var currentRecord: Model.pickRecord(limitRecords, selectedAgent)
   readonly property var agentLimits: currentRecord ? currentRecord.limits : []
+  readonly property var usageList: Model.usageRecords(usageRecords, hiddenAgents)
+  readonly property var usageRecord: Model.pickRecord(usageList, selectedAgent)
   readonly property var allLimits: {
     var result = []
     var records = Model.visibleRecords(usageRecords, hiddenAgents)
@@ -62,13 +62,16 @@ Panel {
       onStreamFinished: root.sessionFiles = Model.jsonFiles(text)
     }
   }
-  Process {
-    id: usageScan
-    command: ["find", root.usageDir, "-maxdepth", "1", "-name", "*.json", "-printf", "%p\\n"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: root.usageFiles = Model.jsonFiles(text)
-    }
+  // Uso e limites vêm do Main.qml do widget Agents do Omarchy: ele roda os coletores
+  // e descobre os registros, então o Agents pode ficar desativado na barra
+  Loader {
+    id: usageLoader
+    source: Quickshell.shellDir + "/plugins/agents/Main.qml"
+  }
+  readonly property var usage: usageLoader.item
+  Connections {
+    target: root.usage
+    function onDataRevisionChanged() { root.collectUsage() }
   }
 
   Instantiator {
@@ -82,17 +85,6 @@ Panel {
     onObjectAdded: root.collectSessions()
     onObjectRemoved: root.collectSessions()
   }
-  Instantiator {
-    id: usageInstantiator
-    model: root.usageFiles
-    delegate: SessionRecord {
-      required property var modelData
-      path: modelData
-      onRecordChanged: root.collectUsage()
-    }
-    onObjectAdded: root.collectUsage()
-    onObjectRemoved: root.collectUsage()
-  }
 
   function collectSessions() {
     var result = []
@@ -103,11 +95,10 @@ Panel {
     sessions = result
   }
   function collectUsage() {
+    var agents = root.usage ? root.usage.agents : []
     var result = []
-    for (var i = 0; i < usageInstantiator.count; i++) {
-      var record = usageInstantiator.objectAt(i)
-      if (record && record.record) result.push(record.record)
-    }
+    for (var i = 0; i < agents.length; i++)
+      if (agents[i] && agents[i].record) result.push(agents[i].record)
     usageRecords = Model.keepLimits(usageRecords, result, Date.now(), 1800000)
   }
   function readDaily() {
@@ -156,18 +147,24 @@ Panel {
     onTriggered: {
       root.nowMs = Date.now()
       if (!sessionScan.running) sessionScan.running = true
-      if (!usageScan.running) usageScan.running = true
       root.readDaily()
     }
   }
 
-  visible: shownSessions.length > 0
+  // Fica na barra com sessões ou com uso registrado, no lugar do widget Agents
+  visible: shownSessions.length > 0 || usageList.length > 0
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
   function open() { root.controller.show() }
   function close() { root.controller.hide() }
   function toggle() { if (root.opened) close(); else open() }
+  // Clique direito: abre o agente padrão, como no widget Agents
+  function launchAgent() {
+    if (root.bar) root.bar.run("omarchy-agent --pick")
+    root.close()
+  }
+  onOpenedChanged: if (opened && root.usage) root.usage.refreshLimits()
 
   onAttentionChanged: root.screen = root.attention ? "attention" : (root.screen === "attention" ? "home" : root.screen)
   Component.onCompleted: {
@@ -253,18 +250,21 @@ Panel {
     Text { visible: limitBar.labels; text: Math.round(limitBar.percent) + "%"; color: root.foreground; font.pixelSize: 12; font.bold: true }
   }
 
-  // Seletor de agente dos gráficos; some quando só um agente tem limites
+  // Seletor de agente dos gráficos; some quando só há um agente na lista
   component AgentTabs: RowLayout {
+    id: tabs
+    property var records: root.limitRecords
+    readonly property var picked: Model.pickRecord(records, root.selectedAgent)
     Layout.alignment: Qt.AlignHCenter
-    visible: root.limitRecords.length > 1
+    visible: records.length > 1
     spacing: 6
     Repeater {
-      model: root.limitRecords.length
+      model: tabs.records.length
       delegate: Rectangle {
         id: chip
         required property int index
-        readonly property var record: root.limitRecords[index]
-        readonly property bool current: root.currentRecord && root.currentRecord.id === record.id
+        readonly property var record: tabs.records[index]
+        readonly property bool current: tabs.picked && tabs.picked.id === record.id
         implicitWidth: chipText.implicitWidth + 16
         implicitHeight: 22
         radius: 11
@@ -276,6 +276,31 @@ Panel {
     }
   }
 
+  // Linha da tela Uso: rótulo, barra proporcional e valor
+  component UsageRow: RowLayout {
+    id: usageRow
+    property string label: ""
+    property real share: 0
+    property string value: ""
+    property bool strong: false
+    property real labelWidth: 40
+    property color tint: Commons.Color.accent
+    Layout.fillWidth: true
+    spacing: 6
+    Text { text: usageRow.label; color: usageRow.strong ? root.foreground : root.dim; font.pixelSize: 12; font.bold: usageRow.strong; elide: Text.ElideRight; Layout.preferredWidth: usageRow.labelWidth }
+    Rectangle {
+      Layout.fillWidth: true
+      Layout.preferredHeight: 5
+      radius: 3
+      color: Qt.alpha(root.foreground, 0.12)
+      Rectangle { width: parent.width * usageRow.share; height: parent.height; radius: 3; color: usageRow.tint }
+    }
+    Text { text: usageRow.value; color: usageRow.strong ? root.foreground : root.dim; font.pixelSize: 12; font.bold: usageRow.strong; horizontalAlignment: Text.AlignRight; Layout.preferredWidth: 44 }
+  }
+
+  // Tokens no formato do Omarchy (1.5M); sem o Main.qml, o número cru
+  function tokens(count) { return root.usage ? root.usage.formatTokenCount(Number(count || 0)) : String(Number(count || 0)) }
+
   // Item do menu inferior
   component MenuItem: Item {
     id: menuItem
@@ -283,10 +308,12 @@ Panel {
     required property string label
     property bool badge: false
     readonly property bool current: root.screen === target
+    // Largura pelo texto: com 6 itens, partes iguais encostariam os rótulos longos
     Layout.fillWidth: true
+    implicitWidth: menuLabel.implicitWidth + 8
     implicitHeight: 28
     Rectangle { anchors.fill: parent; radius: 6; color: Qt.alpha(Commons.Color.accent, menuItem.current ? 0.18 : (hover.hovered ? 0.08 : 0)) }
-    Text { anchors.centerIn: parent; text: menuItem.label; color: menuItem.current ? Commons.Color.accent : root.dim; font.pixelSize: 12; font.bold: menuItem.current }
+    Text { id: menuLabel; anchors.centerIn: parent; text: menuItem.label; color: menuItem.current ? Commons.Color.accent : root.dim; font.pixelSize: 12; font.bold: menuItem.current }
     Rectangle { visible: menuItem.badge; width: 6; height: 6; radius: 3; color: root.urgent; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 4 }
     HoverHandler { id: hover; cursorShape: Qt.PointingHandCursor }
     TapHandler { onTapped: root.screen = menuItem.target }
@@ -324,7 +351,10 @@ Panel {
       }
     }
     active: root.attention || root.alarm
-    onPressed: function(buttonCode) { root.toggle() }
+    onPressed: function(buttonCode) {
+      if (buttonCode === Qt.RightButton) root.launchAgent()
+      else root.toggle()
+    }
     SequentialAnimation on opacity {
       running: root.attention
       loops: Animation.Infinite
@@ -513,6 +543,62 @@ Panel {
           Text { text: "Sem dados de limite"; visible: root.agentLimits.length === 0; color: root.dim; Layout.alignment: Qt.AlignHCenter }
         }
 
+        // Uso: plano, hoje, tokens por dia e por modelo, como no widget Agents
+        ColumnLayout {
+          id: usageScreen
+          visible: root.screen === "usage"
+          Layout.fillWidth: true
+          spacing: 8
+          readonly property var record: root.usageRecord
+          readonly property var days: record ? Model.dayRows(record.recentDays, Qt.formatDate(new Date(root.nowMs), "yyyy-MM-dd")) : []
+          readonly property var models: record ? Model.modelRows(record.modelUsage) : []
+          ScreenHeader { title: "Uso" }
+          AgentTabs { records: root.usageList }
+          Text {
+            visible: !!usageScreen.record
+            Layout.fillWidth: true
+            horizontalAlignment: Text.AlignHCenter
+            text: usageScreen.record ? (usageScreen.record.name || usageScreen.record.id)
+              + " · " + (usageScreen.record.usageStatusText || usageScreen.record.tierLabel || "Assinatura") : ""
+            color: root.foreground
+            font.pixelSize: 14
+            font.bold: true
+            elide: Text.ElideRight
+          }
+          Text {
+            visible: !!usageScreen.record
+            Layout.alignment: Qt.AlignHCenter
+            text: usageScreen.record ? "Hoje · " + Number(usageScreen.record.todayPrompts || 0) + " prompts · "
+              + Number(usageScreen.record.todaySessions || 0) + (Number(usageScreen.record.todaySessions) === 1 ? " sessão · " : " sessões · ") + root.tokens(usageScreen.record.todayTotalTokens) + " tokens" : ""
+            color: root.dim
+            font.pixelSize: 12
+          }
+          Text { visible: usageScreen.days.length > 0; text: "Tokens por dia"; color: root.dim; font.pixelSize: 11; font.bold: true }
+          Repeater {
+            model: usageScreen.days
+            delegate: UsageRow {
+              required property var modelData
+              label: modelData.label
+              share: modelData.share
+              value: root.tokens(modelData.tokens)
+              strong: modelData.today
+            }
+          }
+          Text { visible: usageScreen.models.length > 0; text: "Tokens por modelo"; color: root.dim; font.pixelSize: 11; font.bold: true }
+          Repeater {
+            model: usageScreen.models
+            delegate: UsageRow {
+              required property var modelData
+              label: root.usage ? root.usage.friendlyModelName(modelData.id) : modelData.id
+              labelWidth: 110
+              share: modelData.share
+              value: root.tokens(modelData.total)
+              tint: root.secondTint
+            }
+          }
+          Text { text: "Sem dados de uso"; visible: !usageScreen.record; color: root.dim; Layout.alignment: Qt.AlignHCenter }
+        }
+
         // Precisa de você: sessão mais urgente e o que ela pediu
         ColumnLayout {
           visible: root.screen === "attention"
@@ -615,10 +701,11 @@ Panel {
         Rectangle { Layout.fillWidth: true; height: 1; color: root.dim; opacity: 0.35 }
         RowLayout {
           Layout.fillWidth: true
-          spacing: 4
+          spacing: 2
           MenuItem { target: "home"; label: "Início" }
           MenuItem { target: "sessions"; label: "Sessões"; badge: root.attention && root.screen !== "attention" }
           MenuItem { target: "limits"; label: "Limites" }
+          MenuItem { target: "usage"; label: "Uso" }
           MenuItem { target: "agents"; label: "Agentes" }
           MenuItem { target: "attention"; label: "Pedido"; visible: root.attention }
         }

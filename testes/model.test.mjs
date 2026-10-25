@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs"
 const source = readFileSync(new URL("../Model.js", import.meta.url), "utf8").replace(/^\.pragma library\s*/, "")
-const Model = new Function(source + "; return { sortSessions, hasAttention, alarmingLimit, visible, formatDuration, limitPercent, sessionElapsed, petState, petRows, windowShort, resetLabel, sessionName, activityText, permissionText, shortDuration, runningCount, depletionTime, visibleRecords, visibleSessions, agentLabel, limitRecords, pickRecord, keepLimits, jsonFiles }")()
+const Model = new Function(source + "; return { sortSessions, hasAttention, alarmingLimit, visible, formatDuration, limitPercent, sessionElapsed, petState, petRows, windowShort, resetLabel, sessionName, activityText, permissionText, shortDuration, runningCount, depletionTime, visibleRecords, visibleSessions, agentLabel, limitRecords, pickRecord, keepLimits, jsonFiles, usageRecords, dayRows, modelRows }")()
 let failures = 0
 
 function expect(name, actual, expected) {
@@ -117,6 +117,31 @@ expect("no previous keeps current", Model.keepLimits([], blank, at("2026-10-25T2
 expect("scan order does not depend on write order", Model.jsonFiles("/u/fireworks.json\n/u/codex.json\n/u/claude.json\n"), Model.jsonFiles("/u/claude.json\n/u/fireworks.json\n/u/codex.json\n"))
 expect("scan keeps only json files", Model.jsonFiles("/u/b.json\n/u/.codex.tmp\n\n/u/a.json"), ["/u/a.json", "/u/b.json"])
 expect("empty scan", Model.jsonFiles(""), [])
+
+// Tela Uso: agentes com dados, tokens por dia e por modelo (como o widget Agents do Omarchy)
+const usageData = [
+  { id: "claude", todayPrompts: 3, limits: [] },
+  { id: "codex", totalSessions: 5, limits: [] },
+  { id: "fireworks", limits: [] },
+]
+expect("usage lists agents with data", Model.usageRecords(usageData, []).map(record => record.id), ["claude", "codex"])
+expect("usage hides hidden agents", Model.usageRecords(usageData, ["codex"]).map(record => record.id), ["claude"])
+const days = [{ date: "2026-10-24", messageCount: 50 }, { date: "2026-10-25", messageCount: 200 }]
+expect("day rows scale to the busiest day", Model.dayRows(days, "2026-10-25"), [
+  { date: "2026-10-24", label: "sáb", tokens: 50, share: 0.25, today: false },
+  { date: "2026-10-25", label: "Hoje", tokens: 200, share: 1, today: true },
+])
+expect("quiet week has zero shares", Model.dayRows([{ date: "2026-10-24", messageCount: 0 }], "2026-10-25")[0].share, 0)
+const byModel = {
+  "a": { inputTokens: 10, outputTokens: 10 },
+  "b": { inputTokens: 100, cacheReadInputTokens: 300 },
+  "c": { outputTokens: 5 }, "d": { outputTokens: 1 }, "e": { outputTokens: 2 },
+}
+expect("model rows sorted, top 4, scaled", Model.modelRows(byModel), [
+  { id: "b", total: 400, share: 1 }, { id: "a", total: 20, share: 0.05 },
+  { id: "c", total: 5, share: 0.0125 }, { id: "e", total: 2, share: 0.005 },
+])
+expect("no model usage", Model.modelRows(undefined), [])
 
 if (failures) process.exit(1)
 console.log("checks passed")

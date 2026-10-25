@@ -23,6 +23,9 @@ A small menu at the bottom of the panel switches between:
   (`Editando Hero.tsx`, `Bash · npm test`) and how long it has been running.
 - **Limites** — the main window of the selected agent in a big gauge and, when
   the current pace would run out before the reset, the time it would happen.
+- **Uso** — the same usage view as Omarchy's Agents widget, per agent: plan,
+  today's prompts, sessions and tokens, tokens per day for the last week and
+  tokens per model.
 - **Pedido** — opens by itself when a session asks for permission: project,
   the requested command (`Bash: npm run migrate`) and how long it has waited.
 - **Agentes** — every agent Omarchy tracks, with a switch to hide it (and its
@@ -41,13 +44,19 @@ when Codex is installed, to `~/.codex/hooks.json`. Both files are backed up firs
 and your existing hooks are kept. Codex runs new hooks only after you review and
 trust them: open Codex and run `/hooks`.
 
-The widget stays hidden until a session starts.
+Left click opens the panel; right click launches your default agent
+(`omarchy-agent --pick`), like the Agents widget.
+
+The widget stays hidden until a session starts or Omarchy has recorded agent
+usage. It loads the Agents widget's data layer (`plugins/agents/Main.qml` from
+the Omarchy Shell), which refreshes the usage records, so the Agents widget
+itself can be turned off: `omarchy plugin disable omarchy.agents`.
 
 ### Requirements
 
 - Omarchy 4 (Omarchy Shell) and `python3`.
-- Claude Code and/or Codex. Usage limits come from Omarchy's own collectors
-  (`omarchy.agents`); for Codex, install it the Omarchy way
+- Claude Code and/or Codex. Usage and limits come from Omarchy's own collectors
+  (`omarchy-agent-usage-update`); for Codex, install it the Omarchy way
   (`omarchy-mise-install codex`) so the collector can find it.
 
 ### Update
@@ -101,7 +110,9 @@ hot reload keeps components it already compiled.
 
 Agent Pet é um computadorzinho na barra do Omarchy que acompanha as sessões
 locais do Claude Code e do Codex: quem está trabalhando, quem precisa de você,
-os limites de uso de cada agente e o resumo do dia. Instale com os dois comandos
+os limites e o uso de cada agente (tokens por dia e por modelo) e o resumo do
+dia. O clique direito abre o agente padrão, e o widget Agents do Omarchy pode
+ser desativado. Instale com os dois comandos
 da seção **Install**, aprove os hooks no Codex com `/hooks` e pronto. Tudo fica
 na sua máquina.
 
