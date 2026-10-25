@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs"
 const source = readFileSync(new URL("../Model.js", import.meta.url), "utf8").replace(/^\.pragma library\s*/, "")
-const Model = new Function(source + "; return { sortSessions, hasAttention, alarmingLimit, visible, formatDuration, limitPercent, sessionElapsed, petState, petRows, windowShort, resetLabel, sessionName, activityText, permissionText, shortDuration, runningCount, depletionTime, visibleRecords, visibleSessions, agentLabel, limitRecords, pickRecord, keepLimits }")()
+const Model = new Function(source + "; return { sortSessions, hasAttention, alarmingLimit, visible, formatDuration, limitPercent, sessionElapsed, petState, petRows, windowShort, resetLabel, sessionName, activityText, permissionText, shortDuration, runningCount, depletionTime, visibleRecords, visibleSessions, agentLabel, limitRecords, pickRecord, keepLimits, jsonFiles }")()
 let failures = 0
 
 function expect(name, actual, expected) {
@@ -112,6 +112,11 @@ const later = Model.keepLimits(kept, blank, at("2026-10-25T20:45:00Z"), 1800000)
 expect("old limits expire by original time", later[0].limits, [])
 expect("fresh limits win", Model.keepLimits(blank, good, at("2026-10-25T20:15:00Z"), 1800000)[0].limits, good[0].limits)
 expect("no previous keeps current", Model.keepLimits([], blank, at("2026-10-25T20:15:00Z"), 1800000)[0].limits, [])
+
+// A ordem do find segue a última gravação; lista fora de ordem recria os leitores e perde os limites guardados
+expect("scan order does not depend on write order", Model.jsonFiles("/u/fireworks.json\n/u/codex.json\n/u/claude.json\n"), Model.jsonFiles("/u/claude.json\n/u/fireworks.json\n/u/codex.json\n"))
+expect("scan keeps only json files", Model.jsonFiles("/u/b.json\n/u/.codex.tmp\n\n/u/a.json"), ["/u/a.json", "/u/b.json"])
+expect("empty scan", Model.jsonFiles(""), [])
 
 if (failures) process.exit(1)
 console.log("checks passed")

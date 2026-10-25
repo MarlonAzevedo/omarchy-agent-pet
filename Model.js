@@ -158,6 +158,11 @@ function pickRecord(records, id) {
   return list.length ? list[0] : null
 }
 
+// Saída do find em ordem fixa: a ordem de gravação muda e recriaria os leitores
+function jsonFiles(text) {
+  return String(text || "").split("\n").filter(function(path) { return path.endsWith(".json") }).sort()
+}
+
 // Falha passageira do coletor grava limites vazios; mantém os últimos bons até maxAgeMs
 function keepLimits(previous, current, now, maxAgeMs) {
   return (current || []).map(function(record) {

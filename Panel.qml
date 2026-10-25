@@ -59,7 +59,7 @@ Panel {
     command: ["find", root.sessionsDir, "-maxdepth", "1", "-name", "*.json", "-printf", "%p\\n"]
     stdout: StdioCollector {
       waitForEnd: true
-      onStreamFinished: root.sessionFiles = String(text || "").split("\n").filter(function(path) { return path.endsWith(".json") })
+      onStreamFinished: root.sessionFiles = Model.jsonFiles(text)
     }
   }
   Process {
@@ -67,7 +67,7 @@ Panel {
     command: ["find", root.usageDir, "-maxdepth", "1", "-name", "*.json", "-printf", "%p\\n"]
     stdout: StdioCollector {
       waitForEnd: true
-      onStreamFinished: root.usageFiles = String(text || "").split("\n").filter(function(path) { return path.endsWith(".json") })
+      onStreamFinished: root.usageFiles = Model.jsonFiles(text)
     }
   }
 
