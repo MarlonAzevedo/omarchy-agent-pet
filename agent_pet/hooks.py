@@ -197,7 +197,8 @@ def from_antigravity(event, event_name):
         return None
     tool = event.get("toolCall") if isinstance(event.get("toolCall"), dict) else {}
     paths = event.get("workspacePaths")
-    if event_name == "Stop" and event.get("terminationReason") == "USER_CANCELED":
+    # Cancelado ou com erro não é resposta concluída
+    if event_name == "Stop" and event.get("terminationReason") in {"USER_CANCELED", "ERROR"}:
         event_name = "Interrupt"
     return {
         "hook_event_name": event_name,

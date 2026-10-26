@@ -251,6 +251,14 @@ class HookStateTests(unittest.TestCase):
         self.assertEqual(self.read_session("antigravity:c1")["status"], "idle")
         self.assertFalse((self.state / "day").exists())
 
+    def test_antigravity_error_is_not_a_reply(self):
+        # Regressão: turno que falhou (ex.: cota esgotada) contava como resposta
+        self.agy("SessionStart", {})
+        self.agy("PreInvocation", {"invocationNum": 0})
+        self.agy("Stop", {"terminationReason": "ERROR", "error": "RESOURCE_EXHAUSTED"})
+        self.assertEqual(self.read_session("antigravity:c1")["status"], "idle")
+        self.assertFalse((self.state / "day").exists())
+
     def test_antigravity_resumed_conversation_is_adopted(self):
         # agy -c não manda SessionStart
         watch = self.agy("PreInvocation", {"invocationNum": 0})
