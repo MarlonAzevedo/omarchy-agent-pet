@@ -25,7 +25,10 @@ EVENTS = {
     "Interrupt",
 }
 AGENTS = {"claude", "codex"}
-ATTENTION_NOTIFICATIONS = {"idle_prompt", "agent_needs_input"}
+# idle_prompt fica de fora: chega 60 s depois de toda resposta, sem pergunta
+ATTENTION_NOTIFICATIONS = {"agent_needs_input"}
+# Nesses modos o PermissionRequest vem antes da aprovação automática
+AUTO_PERMISSION_MODES = {"auto", "bypassPermissions", "dontAsk"}
 DETAIL_LIMIT = 60
 APP_NAME = "Retro Agent Pet"
 FILE_TOOLS = {"Edit": "file_path", "MultiEdit": "file_path", "Write": "file_path", "Read": "file_path", "NotebookEdit": "notebook_path"}
@@ -252,6 +255,8 @@ def handle_event(event, state_root=None, config_path=None, now_ms=None, agent="c
                     turn_started_at=None,
                 )
             elif event_name == "PermissionRequest":
+                if agent == "claude" and event.get("permission_mode") in AUTO_PERMISSION_MODES:
+                    return 0
                 session.update(
                     status="attention",
                     attention_reason="permission",
@@ -259,23 +264,31 @@ def handle_event(event, state_root=None, config_path=None, now_ms=None, agent="c
                     tool_detail=_tool_detail(event.get("tool_name"), event.get("tool_input")),
                     activity_started_at=now_ms,
                 )
-                if _notification_enabled(config_path):
-                    tool_name = event.get("tool_name") or "Claude Code"
+                # Claude Code avisa depois, pelo permission_prompt, se o pedido ficar esperando
+                if agent != "claude" and _notification_enabled(config_path):
+                    tool_name = event.get("tool_name") or agent
                     cwd = event.get("cwd") or session.get("cwd") or ""
                     notification = ["notify-send", f"{APP_NAME} · {tool_name}", cwd]
             elif event_name == "Notification":
                 notification_type = event.get("notification_type")
                 if notification_type == "permission_prompt":
+                    # Diálogo aberto há ~6 s: aí sim precisa de você
+                    session.update(status="attention", attention_reason="permission")
+                    if not session.get("activity_started_at"):
+                        session["activity_started_at"] = now_ms
+                    if _notification_enabled(config_path):
+                        tool_name = session.get("current_tool") or "Claude Code"
+                        notification = ["notify-send", f"{APP_NAME} · {tool_name}", event.get("cwd") or session.get("cwd") or ""]
+                elif notification_type not in ATTENTION_NOTIFICATIONS:
                     return 0
-                if notification_type not in ATTENTION_NOTIFICATIONS:
-                    return 0
-                session.update(status="attention", attention_reason="input", activity_started_at=now_ms)
-                if _notification_enabled(config_path):
-                    notification = [
-                        "notify-send",
-                        event.get("title") or APP_NAME,
-                        event.get("message") or "Claude Code precisa de você",
-                    ]
+                else:
+                    session.update(status="attention", attention_reason="input", activity_started_at=now_ms)
+                    if _notification_enabled(config_path):
+                        notification = [
+                            "notify-send",
+                            event.get("title") or APP_NAME,
+                            event.get("message") or "Claude Code precisa de você",
+                        ]
 
             session["agent"] = agent
             session["updated_at"] = now_ms

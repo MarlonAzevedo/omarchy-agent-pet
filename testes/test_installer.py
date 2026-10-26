@@ -102,7 +102,7 @@ class InstallerTests(unittest.TestCase):
                 for hook in group["hooks"]:
                     self.assertEqual(hook["type"], "command")
                     self.assertIs(hook["async"], True)
-        self.assertEqual(hooks["Notification"][0]["matcher"], "idle_prompt|agent_needs_input|permission_prompt")
+        self.assertEqual(hooks["Notification"][0]["matcher"], "agent_needs_input|permission_prompt")
 
     def test_setup_exit_codes(self):
         self.settings.write_text("{}")

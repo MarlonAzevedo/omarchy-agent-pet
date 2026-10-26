@@ -16,7 +16,7 @@ EVENTS = {
     "PostToolUse": None,
     "PostToolUseFailure": None,
     "PermissionRequest": None,
-    "Notification": "idle_prompt|agent_needs_input|permission_prompt",
+    "Notification": "agent_needs_input|permission_prompt",
     "Stop": None,
     "SessionEnd": None,
 }

@@ -157,7 +157,7 @@ class HookStateTests(unittest.TestCase):
 
     def test_input_notification_records_reason(self):
         self.send({"hook_event_name": "SessionStart", "session_id": "s1"}, 1000)
-        self.send({"hook_event_name": "Notification", "session_id": "s1", "notification_type": "idle_prompt"}, 3000)
+        self.send({"hook_event_name": "Notification", "session_id": "s1", "notification_type": "agent_needs_input"}, 3000)
         data = self.read_session("s1")
         self.assertEqual(data["attention_reason"], "input")
         self.assertEqual(data["activity_started_at"], 3000)
