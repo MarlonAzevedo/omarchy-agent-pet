@@ -48,8 +48,9 @@ omarchy plugin add https://github.com/MarlonAzevedo/omarchy-retro-agent-pet.git 
 `--enable` puts the pet on the right side of the bar. `agent-pet setup` asks for
 confirmation and then adds asynchronous hooks to `~/.claude/settings.json` and,
 when Codex is installed, to `~/.codex/hooks.json`. Both files are backed up first
-and your existing hooks are kept. Codex runs new hooks only after you review and
-trust them: open Codex and run `/hooks`.
+and your existing hooks are kept. Codex runs new or changed hooks only after you
+trust them: start a new Codex session and choose **Trust all and continue** when it
+asks (`/hooks` shows whether they are active).
 
 When the Antigravity CLI is installed (`~/.gemini/config/` exists), setup also adds
 a `retro-agent-pet` block to `~/.gemini/config/hooks.json`. `agy` has no session-end
@@ -135,7 +136,7 @@ locais do Claude Code, do Codex e do Antigravity CLI: quem está trabalhando, qu
 os limites e o uso de cada agente (tokens por dia e por modelo) e o resumo do
 dia, com um timer de foco (pomodoro) e um modo discreto. O clique direito abre o agente padrão, e o widget Agents do Omarchy pode
 ser desativado. Instale com os dois comandos
-da seção **Install**, aprove os hooks no Codex com `/hooks` e pronto. Tudo fica
+da seção **Install**, aprove os hooks ao abrir uma sessão nova do Codex ("Trust all and continue") e pronto. Tudo fica
 na sua máquina.
 
 ## Credits

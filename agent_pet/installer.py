@@ -201,7 +201,7 @@ def setup():
     antigravity_hooks_path = antigravity_config / "hooks.json" if antigravity_config.is_dir() else None
     print(f"Será instalado o monitor de sessões em {settings_path}.")
     if codex_hooks_path:
-        print(f"Codex encontrado: também em {codex_hooks_path} (aprove depois com /hooks no Codex).")
+        print(f"Codex encontrado: também em {codex_hooks_path} (aprove ao abrir uma sessão nova do Codex: 'Trust all and continue').")
     if antigravity_hooks_path:
         print(f"Antigravity CLI encontrado: também em {antigravity_hooks_path}.")
     try:
