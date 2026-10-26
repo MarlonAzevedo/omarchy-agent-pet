@@ -23,17 +23,23 @@ EVENTS = {
     "Stop",
     "SessionEnd",
     "Interrupt",
+    "PreInvocation",
 }
-AGENTS = {"claude", "codex"}
+AGENTS = {"claude", "codex", "antigravity"}
+# agy (Antigravity CLI): o nome do evento vem pelo argumento --event
+ANTIGRAVITY_EVENTS = {"SessionStart", "PreInvocation", "PreToolUse", "PostToolUse", "Stop"}
+SHELLS = {"sh", "bash", "dash", "zsh", "fish"}
 # idle_prompt fica de fora: chega 60 s depois de toda resposta, sem pergunta
 ATTENTION_NOTIFICATIONS = {"agent_needs_input"}
 # Nesses modos o PermissionRequest vem antes da aprovação automática
 AUTO_PERMISSION_MODES = {"auto", "bypassPermissions", "dontAsk"}
 DETAIL_LIMIT = 60
 APP_NAME = "Retro Agent Pet"
-FILE_TOOLS = {"Edit": "file_path", "MultiEdit": "file_path", "Write": "file_path", "Read": "file_path", "NotebookEdit": "notebook_path"}
+FILE_TOOLS = {"Edit": "file_path", "MultiEdit": "file_path", "Write": "file_path", "Read": "file_path", "NotebookEdit": "notebook_path",
+              "read_file": "Path", "write_file": "Path", "edit_file": "Path"}
 PATCH_FILE = re.compile(r"^\*\*\* (?:Update|Add|Delete) File: (.+)$", re.MULTILINE)
-TEXT_TOOLS = {"Bash": "command", "Grep": "pattern", "Glob": "pattern", "WebSearch": "query", "Task": "description", "Agent": "description"}
+TEXT_TOOLS = {"Bash": "command", "Grep": "pattern", "Glob": "pattern", "WebSearch": "query", "Task": "description", "Agent": "description",
+              "run_command": "CommandLine", "call_mcp_tool": "ToolName"}
 
 
 def _state_root():
@@ -143,6 +149,65 @@ def _new_session(event, now_ms, agent):
     }
 
 
+def _agent_pid():
+    # Primeiro ancestral que não é shell: o processo do agy que chamou o hook
+    pid = os.getppid()
+    for _ in range(4):
+        try:
+            name = Path(f"/proc/{pid}/comm").read_text().strip()
+            parent = int(Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[1])
+        except (OSError, ValueError, IndexError):
+            return None
+        if name not in SHELLS or parent <= 1:
+            return pid
+        pid = parent
+    return pid
+
+
+def _watch_end(pid, path):
+    # agy não tem SessionEnd: apaga a sessão quando o processo sair
+    try:
+        subprocess.Popen(
+            ["sh", "-c", 'tail --pid="$1" -f /dev/null; rm -f "$2"', "sh", str(pid), str(path)],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except OSError:
+        pass
+
+
+def _drop_process_sessions(state_root, agent, pid, keep):
+    # Conversa nova no mesmo processo ou processo que já saiu (ex.: reinício da máquina)
+    for path in (state_root / "sessions").glob("*.json"):
+        if path == keep:
+            continue
+        try:
+            old = _read_json(path, {})
+        except (OSError, ValueError):
+            continue
+        old_pid = old.get("pid")
+        if old.get("agent") == agent and isinstance(old_pid, int) and (old_pid == pid or not os.path.exists(f"/proc/{old_pid}")):
+            path.unlink(missing_ok=True)
+
+
+def from_antigravity(event, event_name):
+    if not isinstance(event, dict) or event_name not in ANTIGRAVITY_EVENTS:
+        return None
+    tool = event.get("toolCall") if isinstance(event.get("toolCall"), dict) else {}
+    paths = event.get("workspacePaths")
+    if event_name == "Stop" and event.get("terminationReason") == "USER_CANCELED":
+        event_name = "Interrupt"
+    return {
+        "hook_event_name": event_name,
+        "session_id": event.get("conversationId"),
+        "cwd": paths[0] if isinstance(paths, list) and paths else None,
+        "tool_name": tool.get("name"),
+        "tool_input": tool.get("args"),
+    }
+
+
 def _notify(args):
     try:
         subprocess.run(
@@ -169,11 +234,21 @@ def handle_event(event, state_root=None, config_path=None, now_ms=None, agent="c
     config_path = Path(config_path) if config_path else _config_path()
     session_path = _session_path(state_root, session_id, agent)
     notification = None
+    pid = event.get("pid") if isinstance(event.get("pid"), int) else None
+    watch = False
 
     try:
         with _write_lock(state_root):
-            if event_name == "SessionStart":
-                session = _read_json(session_path, None)
+            session = _read_json(session_path, None)
+            if event_name == "SessionEnd":
+                session_path.unlink(missing_ok=True)
+                return 0
+
+            # Conversa retomada no agy não manda SessionStart: começa no primeiro evento do processo
+            if event_name == "SessionStart" or (pid and (session is None or session.get("pid") != pid)):
+                if pid:
+                    _drop_process_sessions(state_root, agent, pid, session_path)
+                    watch = session is None or session.get("pid") != pid
                 if session is None:
                     session = _new_session(event, now_ms, agent)
                 else:
@@ -189,18 +264,23 @@ def handle_event(event, state_root=None, config_path=None, now_ms=None, agent="c
                         activity_started_at=None,
                         updated_at=now_ms,
                     )
-                _write_json(session_path, session)
+                if pid:
+                    session["pid"] = pid
+            elif session is None:
                 return 0
 
-            session = _read_json(session_path, None)
-            if session is None:
-                return 0
-
-            if event_name == "SessionEnd":
-                session_path.unlink(missing_ok=True)
-                return 0
-
-            if event_name == "UserPromptSubmit":
+            if event_name == "PreInvocation":
+                # agy chama o modelo várias vezes por turno; a primeira abre o turno
+                if session.get("status") != "working":
+                    session["turn_started_at"] = now_ms
+                session.update(
+                    status="working",
+                    current_tool=None,
+                    tool_detail=None,
+                    attention_reason=None,
+                    activity_started_at=None,
+                )
+            elif event_name == "UserPromptSubmit":
                 session.update(
                     status="working",
                     current_tool=None,
@@ -296,6 +376,8 @@ def handle_event(event, state_root=None, config_path=None, now_ms=None, agent="c
     except (OSError, ValueError, TypeError):
         return 1
 
+    if watch:
+        _watch_end(pid, session_path)
     if notification:
         _notify(notification)
     return 0
@@ -303,11 +385,20 @@ def handle_event(event, state_root=None, config_path=None, now_ms=None, agent="c
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
-    agent = argv[1] if len(argv) == 2 and argv[0] == "--agent" and argv[1] in AGENTS else "claude"
+    agent = argv[1] if len(argv) >= 2 and argv[0] == "--agent" and argv[1] in AGENTS else "claude"
+    if agent == "antigravity":
+        # agy espera JSON na saída; {} não decide nada
+        print("{}")
     try:
         event = json.load(sys.stdin)
     except (json.JSONDecodeError, UnicodeDecodeError):
         return 0
+    if agent == "antigravity":
+        event_name = argv[3] if len(argv) == 4 and argv[2] == "--event" else None
+        event = from_antigravity(event, event_name)
+        if event is None:
+            return 0
+        event["pid"] = _agent_pid()
     return handle_event(event, agent=agent)
 
 

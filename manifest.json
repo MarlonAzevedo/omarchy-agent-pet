@@ -5,12 +5,12 @@
   "version": "0.3.0",
   "author": "Marlon Azevedo",
   "license": "MIT",
-  "description": "A tiny retro computer on the bar that watches your local Claude Code and Codex sessions: who is working, who needs you, usage limits per agent and today's summary.",
+  "description": "A tiny retro computer on the bar that watches your local Claude Code, Codex and Antigravity sessions: who is working, who needs you, usage limits per agent and today's summary.",
   "kinds": ["bar-widget"],
   "entryPoints": { "barWidget": "Panel.qml" },
   "barWidget": {
     "displayName": "Retro Agent Pet",
-    "description": "Local Claude Code and Codex sessions, permission requests and usage limits.",
+    "description": "Local Claude Code, Codex and Antigravity sessions, permission requests and usage limits.",
     "category": "AI",
     "allowMultiple": false,
     "defaultSection": "right"

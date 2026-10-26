@@ -31,6 +31,10 @@ CODEX_EVENTS = {
     "SessionEnd": None,
     "Interrupt": None,
 }
+# Antigravity CLI (agy): blocos com nome; eventos de ferramenta usam matcher
+ANTIGRAVITY_HOOK = "retro-agent-pet"
+ANTIGRAVITY_EVENTS = ("SessionStart", "PreInvocation", "PreToolUse", "PostToolUse", "Stop")
+ANTIGRAVITY_TOOL_EVENTS = {"PreToolUse", "PostToolUse"}
 
 
 def write_settings_atomically(path, content):
@@ -103,6 +107,33 @@ def _merge_hooks(settings, command, events=EVENTS):
     return settings
 
 
+def _merge_antigravity(settings, project_root):
+    # O bloco é todo do Agent Pet: regravar resolve caminho antigo e duplicata
+    spec = {}
+    for event_name in ANTIGRAVITY_EVENTS:
+        handler = {"type": "command", "command": f"{_hook_command(project_root, 'antigravity')} --event {event_name}", "timeout": 5}
+        spec[event_name] = [{"matcher": "", "hooks": [handler]}] if event_name in ANTIGRAVITY_TOOL_EVENTS else [handler]
+    settings[ANTIGRAVITY_HOOK] = spec
+    return settings
+
+
+def _targets(project_root, settings_path, codex_hooks_path=None, antigravity_hooks_path=None):
+    targets = [(Path(settings_path), lambda settings: _merge_hooks(settings, _hook_command(project_root), EVENTS))]
+    if codex_hooks_path:
+        targets.append((Path(codex_hooks_path), lambda settings: _merge_hooks(settings, _hook_command(project_root, "codex"), CODEX_EVENTS)))
+    if antigravity_hooks_path:
+        targets.append((Path(antigravity_hooks_path), lambda settings: _merge_antigravity(settings, project_root)))
+    return targets
+
+
+def _plan(targets):
+    plans = []
+    for path, merge in targets:
+        settings = _read_settings(path)
+        plans.append((path, settings, merge(json.loads(json.dumps(settings)))))
+    return plans
+
+
 def _backup_path(settings_path):
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     return settings_path.with_name(f"{settings_path.name}.bak.{stamp}")
@@ -134,16 +165,9 @@ def _write_merged(settings_path, settings, merged):
     write_settings_atomically(settings_path, (json.dumps(merged, ensure_ascii=False, indent=2) + "\n").encode("utf-8"))
 
 
-def install(settings_path, config_path, project_root, confirm, codex_hooks_path=None):
-    settings_path = Path(settings_path)
+def install(settings_path, config_path, project_root, confirm, codex_hooks_path=None, antigravity_hooks_path=None):
     config_path = Path(config_path)
-    targets = [(settings_path, _hook_command(project_root), EVENTS)]
-    if codex_hooks_path:
-        targets.append((Path(codex_hooks_path), _hook_command(project_root, "codex"), CODEX_EVENTS))
-    plans = []
-    for path, command, events in targets:
-        settings = _read_settings(path)
-        plans.append((path, settings, _merge_hooks(json.loads(json.dumps(settings)), command, events)))
+    plans = _plan(_targets(project_root, settings_path, codex_hooks_path, antigravity_hooks_path))
     if not confirm:
         return 2
 
@@ -166,18 +190,16 @@ def setup():
     config_path = home / ".config" / "agent-pet" / "config.json"
     codex_home = Path(os.environ.get("CODEX_HOME") or home / ".codex")
     codex_hooks_path = codex_home / "hooks.json" if codex_home.is_dir() else None
+    antigravity_config = home / ".gemini" / "config"
+    antigravity_hooks_path = antigravity_config / "hooks.json" if antigravity_config.is_dir() else None
     print(f"Será instalado o monitor de sessões em {settings_path}.")
     if codex_hooks_path:
         print(f"Codex encontrado: também em {codex_hooks_path} (aprove depois com /hooks no Codex).")
+    if antigravity_hooks_path:
+        print(f"Antigravity CLI encontrado: também em {antigravity_hooks_path}.")
     try:
-        targets = [(settings_path, _hook_command(root), EVENTS)]
-        if codex_hooks_path:
-            targets.append((codex_hooks_path, _hook_command(root, "codex"), CODEX_EVENTS))
-        pending = False
-        for path, command, events in targets:
-            parsed = _read_settings(path)
-            pending = pending or _merge_hooks(json.loads(json.dumps(parsed)), command, events) != parsed
-        if pending:
+        plans = _plan(_targets(root, settings_path, codex_hooks_path, antigravity_hooks_path))
+        if any(merged != settings for _, settings, merged in plans):
             print("Os hooks serão mesclados à configuração existente; os hooks atuais serão preservados.")
         else:
             print("Os hooks já estão instalados.")
@@ -187,7 +209,7 @@ def setup():
             return 2
         if answer not in {"s", "sim", "y", "yes"}:
             return 2
-        return install(settings_path, config_path, root, True, codex_hooks_path)
+        return install(settings_path, config_path, root, True, codex_hooks_path, antigravity_hooks_path)
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"Falha na instalação: {error}", file=sys.stderr)
         return 1

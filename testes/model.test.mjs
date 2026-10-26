@@ -88,6 +88,9 @@ expect("hidden agent hides its sessions", Model.visibleSessions(mixed, ["codex"]
 expect("missing agent counts as claude", Model.visibleSessions(mixed, ["claude"]).map(item => item.session_id), ["a"])
 expect("codex label", Model.agentLabel({ agent: "codex" }), "Codex")
 expect("default label", Model.agentLabel({}), "Claude Code")
+expect("antigravity label", Model.agentLabel({ agent: "antigravity" }), "Antigravity")
+expect("agy command activity", Model.activityText({ status: "working", current_tool: "run_command", tool_detail: "npm test" }), "Rodando npm test")
+expect("agy edit activity", Model.activityText({ status: "working", current_tool: "edit_file", tool_detail: "Hero.tsx" }), "Editando Hero.tsx")
 
 const usage = [
   { id: "claude", limits: [{ label: "Session (5-hour)", percent: 0.2 }] },

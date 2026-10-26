@@ -140,6 +140,27 @@ class InstallerTests(unittest.TestCase):
         self.settings.write_text("{}")
         self.assertEqual(self.run_setup().returncode, 0)
         self.assertFalse((self.home / ".codex").exists())
+        self.assertFalse((self.home / ".gemini").exists())
+
+    def test_setup_installs_antigravity_hooks_when_agy_exists(self):
+        self.settings.write_text("{}")
+        agy_hooks = self.home / ".gemini" / "config" / "hooks.json"
+        agy_hooks.parent.mkdir(parents=True)
+        other = {"PreInvocation": [{"type": "command", "command": "outro"}]}
+        agy_hooks.write_text(json.dumps({"outro": other, "retro-agent-pet": {"Stop": []}}))
+        self.assertEqual(self.run_setup().returncode, 0)
+        self.assertEqual(self.run_setup().returncode, 0)
+        hooks = json.loads(agy_hooks.read_text())
+        self.assertEqual(hooks["outro"], other)
+        pet = hooks["retro-agent-pet"]
+        self.assertEqual(set(pet), {"SessionStart", "PreInvocation", "PreToolUse", "PostToolUse", "Stop"})
+        for event_name, handlers in pet.items():
+            if event_name in {"PreToolUse", "PostToolUse"}:
+                self.assertEqual(handlers[0]["matcher"], "")
+                handlers = handlers[0]["hooks"]
+            self.assertEqual(len(handlers), 1)
+            self.assertTrue(handlers[0]["command"].endswith(f"--agent antigravity --event {event_name}"))
+        self.assertEqual(len(list(agy_hooks.parent.glob("hooks.json.bak.*"))), 1)
 
 
     def test_setup_replaces_hooks_from_old_location(self):
