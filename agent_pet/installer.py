@@ -31,6 +31,8 @@ CODEX_EVENTS = {
     "SessionEnd": None,
     "Interrupt": None,
 }
+# Codex roda SessionEnd sempre síncrono e avisa se vier com async
+CODEX_SYNC_EVENTS = {"SessionEnd"}
 # Antigravity CLI (agy): blocos com nome; eventos de ferramenta usam matcher
 ANTIGRAVITY_HOOK = "retro-agent-pet"
 ANTIGRAVITY_EVENTS = ("SessionStart", "PreInvocation", "PreToolUse", "PostToolUse", "Stop")
@@ -80,7 +82,7 @@ def _drop_stale_hooks(hooks, command):
         hooks[event_name] = kept_groups
 
 
-def _merge_hooks(settings, command, events=EVENTS):
+def _merge_hooks(settings, command, events=EVENTS, sync_events=()):
     hooks = settings.setdefault("hooks", {})
     if not isinstance(hooks, dict):
         raise ValueError("hooks must be an object")
@@ -89,18 +91,23 @@ def _merge_hooks(settings, command, events=EVENTS):
         groups = hooks.setdefault(event_name, [])
         if not isinstance(groups, list):
             raise ValueError(f"hooks.{event_name} must be an array")
-        installed = any(
-            isinstance(group, dict)
-            and isinstance(group.get("hooks"), list)
-            and any(
-                isinstance(item, dict) and item.get("command") == command
-                for item in group["hooks"]
-            )
+        installed = [
+            item
             for group in groups
-        )
+            if isinstance(group, dict) and isinstance(group.get("hooks"), list)
+            for item in group["hooks"]
+            if isinstance(item, dict) and item.get("command") == command
+        ]
+        hook = {"type": "command", "command": command}
+        if event_name not in sync_events:
+            hook["async"] = True
         if installed:
+            # Acerta o async de instalações anteriores
+            for item in installed:
+                item.pop("async", None)
+                item.update(hook)
             continue
-        group = {"hooks": [{"type": "command", "command": command, "async": True}]}
+        group = {"hooks": [hook]}
         if matcher:
             group["matcher"] = matcher
         groups.append(group)
@@ -120,7 +127,7 @@ def _merge_antigravity(settings, project_root):
 def _targets(project_root, settings_path, codex_hooks_path=None, antigravity_hooks_path=None):
     targets = [(Path(settings_path), lambda settings: _merge_hooks(settings, _hook_command(project_root), EVENTS))]
     if codex_hooks_path:
-        targets.append((Path(codex_hooks_path), lambda settings: _merge_hooks(settings, _hook_command(project_root, "codex"), CODEX_EVENTS)))
+        targets.append((Path(codex_hooks_path), lambda settings: _merge_hooks(settings, _hook_command(project_root, "codex"), CODEX_EVENTS, CODEX_SYNC_EVENTS)))
     if antigravity_hooks_path:
         targets.append((Path(antigravity_hooks_path), lambda settings: _merge_antigravity(settings, project_root)))
     return targets

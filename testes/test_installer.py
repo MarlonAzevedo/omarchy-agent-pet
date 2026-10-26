@@ -131,10 +131,28 @@ class InstallerTests(unittest.TestCase):
                 for hook in group["hooks"]:
                     if "pet-hook.py" in hook["command"]:
                         self.assertTrue(hook["command"].endswith("--agent codex"))
-                        self.assertIs(hook["async"], True)
         self.assertEqual(len(list(codex_hooks.parent.glob("hooks.json.bak.*"))), 1)
         claude_commands = [hook["command"] for groups in json.loads(self.settings.read_text())["hooks"].values() for group in groups for hook in group["hooks"]]
         self.assertTrue(all("--agent" not in command for command in claude_commands))
+
+    def test_codex_session_end_is_not_async(self):
+        # Regressão: o Codex avisa "running async SessionEnd hook synchronously"
+        self.settings.write_text("{}")
+        codex_hooks = self.home / ".codex" / "hooks.json"
+        codex_hooks.parent.mkdir()
+        codex_hooks.write_text("{}")
+        self.assertEqual(self.run_setup().returncode, 0)
+        command = json.loads(codex_hooks.read_text())["hooks"]["SessionEnd"][0]["hooks"][0]["command"]
+        # instalação antiga, com async no SessionEnd, é corrigida
+        old = {"hooks": {"SessionEnd": [{"hooks": [{"type": "command", "command": command, "async": True}]}]}}
+        codex_hooks.write_text(json.dumps(old))
+        self.assertEqual(self.run_setup().returncode, 0)
+        hooks = json.loads(codex_hooks.read_text())["hooks"]
+        self.assertEqual(len(hooks["SessionEnd"][0]["hooks"]), 1)
+        self.assertNotIn("async", hooks["SessionEnd"][0]["hooks"][0])
+        self.assertIs(hooks["Stop"][0]["hooks"][0]["async"], True)
+        claude = json.loads(self.settings.read_text())["hooks"]
+        self.assertIs(claude["SessionEnd"][0]["hooks"][0]["async"], True)
 
     def test_setup_skips_codex_when_not_installed(self):
         self.settings.write_text("{}")
