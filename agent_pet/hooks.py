@@ -400,6 +400,9 @@ def main(argv=None):
         if event is None:
             return 0
         event["pid"] = _agent_pid()
+        # No agy, código 1 no PreToolUse pode barrar a ferramenta: o pet nunca atrapalha o agente
+        handle_event(event, agent=agent)
+        return 0
     return handle_event(event, agent=agent)
 
 

@@ -400,6 +400,20 @@ class HookTests(unittest.TestCase):
             self.assertEqual(data["session_id"], "s1")
             self.assertIn(data["current_tool"], {"Bash", "Write"})
 
+    def test_antigravity_hook_never_fails(self):
+        # Regressão: código 1 no PreToolUse pode barrar a ferramenta no agy ("pre-tool hooks failed")
+        with tempfile.TemporaryDirectory() as home:
+            env = os.environ.copy()
+            env["HOME"] = home
+            (Path(home) / ".local").mkdir()
+            (Path(home) / ".local" / "state").write_text("not a directory")
+            hook = ROOT / "hook" / "pet-hook.py"
+            payload = json.dumps({"conversationId": "c1", "toolCall": {"name": "run_command", "args": {"CommandLine": "ls"}}})
+            result = subprocess.run([sys.executable, str(hook), "--agent", "antigravity", "--event", "PreToolUse"],
+                                    input=payload, text=True, capture_output=True, env=env)
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(json.loads(result.stdout), {})
+
     def test_hook_exit_codes(self):
         with tempfile.TemporaryDirectory() as home:
             env = os.environ.copy()
