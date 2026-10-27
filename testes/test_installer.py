@@ -23,12 +23,12 @@ class InstallerTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def run_setup(self, answer="y\n"):
+    def run_setup(self, answer="y\n", args=("setup",)):
         env = os.environ.copy()
         env["HOME"] = str(self.home)
         env.pop("CODEX_HOME", None)
         return subprocess.run(
-            [sys.executable, str(ROOT / "bin" / "agent-pet"), "setup"],
+            [sys.executable, str(ROOT / "bin" / "agent-pet"), *args],
             input=answer,
             text=True,
             capture_output=True,
@@ -158,6 +158,21 @@ class InstallerTests(unittest.TestCase):
         self.settings.write_text("{}")
         self.assertEqual(self.run_setup().returncode, 0)
         self.assertFalse((self.home / ".codex").exists())
+
+    def test_panel_checks_and_installs_without_prompt(self):
+        # O painel pergunta com o botão; setup --yes não lê o terminal
+        self.settings.write_text("{}")
+        self.assertEqual(self.run_setup(args=("check",)).returncode, 3)
+        self.assertEqual(self.run_setup(answer="", args=("setup", "--yes")).returncode, 0)
+        self.assertIn("SessionStart", json.loads(self.settings.read_text())["hooks"])
+        self.assertEqual(self.run_setup(args=("check",)).returncode, 0)
+        self.assertEqual(len(list(self.settings.parent.glob("settings.json.bak.*"))), 1)
+
+    def test_check_does_not_write(self):
+        self.settings.write_text("{}")
+        self.run_setup(args=("check",))
+        self.assertEqual(self.settings.read_text(), "{}")
+        self.assertFalse((self.home / ".config" / "agent-pet").exists())
 
     def test_setup_removes_old_antigravity_block(self):
         # Regressão: o bloco da 0.4.0 sem tratamento do agy barra as ferramentas dele

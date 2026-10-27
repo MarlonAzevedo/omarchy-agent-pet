@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs"
 const source = readFileSync(new URL("../Model.js", import.meta.url), "utf8").replace(/^\.pragma library\s*/, "")
-const Model = new Function(source + "; return { sortSessions, hasAttention, alarmingLimit, visible, formatDuration, limitPercent, sessionElapsed, petState, petRows, windowShort, resetLabel, sessionName, activityText, permissionText, shortDuration, runningCount, depletionTime, visibleRecords, visibleSessions, agentLabel, limitRecords, pickRecord, keepLimits, jsonFiles, usageRecords, dayRows, modelRows, focusPhase, focusClock, claimOnce, focusMessage }")()
+const Model = new Function(source + "; return { sortSessions, hasAttention, alarmingLimit, visible, formatDuration, limitPercent, sessionElapsed, petState, petRows, windowShort, resetLabel, sessionName, activityText, permissionText, shortDuration, runningCount, depletionTime, visibleRecords, visibleSessions, agentLabel, limitRecords, pickRecord, keepLimits, jsonFiles, usageRecords, dayRows, modelRows, focusPhase, focusClock, claimOnce, focusMessage, hooksText }")()
 let failures = 0
 
 function expect(name, actual, expected) {
@@ -162,6 +162,10 @@ expect("claim once per key", [Model.claimOnce("a"), Model.claimOnce("a"), Model.
 expect("work message", Model.focusMessage({ phase: "work", round: 2, rounds: 4 }, focus), "Foco: rodada 2/4 · 25 min")
 expect("break message", Model.focusMessage({ phase: "break", round: 1, rounds: 4 }, focus), "Pausa de 5 min · rodada 1/4 concluída")
 expect("done message", Model.focusMessage({ phase: "done", round: 4, rounds: 4 }, focus), "Foco concluído · 4 rodadas")
+
+expect("hooks ok text", Model.hooksText("ok"), "Acompanhando Claude Code e Codex")
+expect("hooks missing text", Model.hooksText("missing"), "Desativado: ative para ver as sessões dos agentes")
+expect("hooks error text", Model.hooksText("error"), "Falhou; rode bin/agent-pet setup na pasta do plugin")
 
 if (failures) process.exit(1)
 console.log("checks passed")

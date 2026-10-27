@@ -6,6 +6,13 @@ All notable changes to Retro Agent Pet are documented here. The format is based 
 
 ## [Unreleased]
 
+### Added
+
+- **Ativar** button on the Agentes screen: it installs the session hooks
+  (`agent-pet setup --yes`, with the same backups), so installing the plugin is a
+  single `omarchy plugin add … --enable` and setup is no longer a required step.
+  `agent-pet check` reports whether the hooks are installed.
+
 ## [0.5.0] - 2026-10-27
 
 ### Removed

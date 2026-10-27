@@ -34,20 +34,28 @@ A small menu at the bottom of the panel switches between:
   the requested command (`Bash: npm run migrate`) and how long it has waited.
 - **Agentes** — every agent Omarchy tracks, with a switch to hide it (and its
   sessions and gauges) from the other screens, and the **discreet mode** switch:
-  no notifications and no blinking icon.
+  no notifications and no blinking icon. **Sessões** shows whether the session
+  hooks are installed, with an **Ativar** button that installs them.
 - **ⓘ Sobre** — version, license and credits: author, e-mail and project links.
 
 ## Install
 
 ```bash
 omarchy plugin add https://github.com/MarlonAzevedo/omarchy-retro-agent-pet.git --enable
+```
+
+`--enable` puts the pet on the right side of the bar. Usage, limits, focus and
+today's summary work right away. To follow your sessions, open the panel's
+**Agentes** screen and click **Ativar** next to **Sessões**, or run the same setup
+from a terminal, which asks for confirmation:
+
+```bash
 ~/.config/omarchy/plugins/io.github.marlonazevedo.agent-pet/bin/agent-pet setup
 ```
 
-`--enable` puts the pet on the right side of the bar. `agent-pet setup` asks for
-confirmation and then adds asynchronous hooks to `~/.claude/settings.json` and,
-when Codex is installed, to `~/.codex/hooks.json`. Both files are backed up first
-and your existing hooks are kept. Codex runs new or changed hooks only after you
+Setup adds asynchronous hooks to `~/.claude/settings.json` and, when Codex is
+installed, to `~/.codex/hooks.json`. Both files are backed up first and your
+existing hooks are kept; nothing is written until you click or confirm. Codex runs new or changed hooks only after you
 trust them: start a new Codex session and choose **Trust all and continue** when it
 asks (`/hooks` shows whether they are active).
 
@@ -127,8 +135,8 @@ Retro Agent Pet é um computadorzinho na barra do Omarchy que acompanha as sess�
 locais do Claude Code e do Codex: quem está trabalhando, quem precisa de você,
 os limites e o uso de cada agente (tokens por dia e por modelo) e o resumo do
 dia, com um timer de foco (pomodoro) e um modo discreto. O clique direito abre o agente padrão, e o widget Agents do Omarchy pode
-ser desativado. Instale com os dois comandos
-da seção **Install**, aprove os hooks ao abrir uma sessão nova do Codex ("Trust all and continue") e pronto. Tudo fica
+ser desativado. Instale com o comando da seção **Install** e, para acompanhar as sessões, clique em
+**Ativar** na tela Agentes; no Codex, aprove os hooks ao abrir uma sessão nova ("Trust all and continue"). Tudo fica
 na sua máquina.
 
 ## Credits

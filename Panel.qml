@@ -189,6 +189,28 @@ Panel {
   function stopFocus() { writeFocus({}) }
 
   Process { id: notifier }
+
+  // Hooks das sessões: o painel instala com o botão da tela Agentes (setup --yes)
+  readonly property string agentPetBin: Qt.resolvedUrl("bin/agent-pet").toString().replace("file://", "")
+  // "", ok, missing, installing ou error
+  property string hooksState: ""
+  Process {
+    id: hooksCheck
+    command: ["python3", root.agentPetBin, "check"]
+    onExited: function(exitCode) { root.hooksState = exitCode === 0 ? "ok" : exitCode === 3 ? "missing" : "error" }
+  }
+  Process {
+    id: hooksSetup
+    command: ["python3", root.agentPetBin, "setup", "--yes"]
+    onExited: function(exitCode) {
+      if (exitCode === 0) hooksCheck.running = true
+      else root.hooksState = "error"
+    }
+  }
+  function installHooks() {
+    root.hooksState = "installing"
+    hooksSetup.running = true
+  }
   // Avisa ao entrar em cada etapa; a primeira leitura (início ou shell reiniciado) só registra
   onFocusInfoChanged: {
     var info = root.focusInfo
@@ -228,7 +250,11 @@ Panel {
     if (root.bar) root.bar.run("omarchy-agent --pick")
     root.close()
   }
-  onOpenedChanged: if (opened && root.usage) root.usage.refreshLimits()
+  onOpenedChanged: {
+    if (!opened) return
+    if (root.usage) root.usage.refreshLimits()
+    if (!hooksSetup.running) hooksCheck.running = true
+  }
 
   onAttentionChanged: root.screen = root.attention ? "attention" : (root.screen === "attention" ? "home" : root.screen)
   Component.onCompleted: {
@@ -879,6 +905,29 @@ Panel {
               Text { text: "Sem notificações e sem piscar o ícone"; color: root.dim; font.pixelSize: 11 }
             }
             Toggle { on: root.discreet; onToggled: root.setConfig("discreet", !root.discreet) }
+          }
+          RowLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: 10
+            Layout.rightMargin: 10
+            ColumnLayout {
+              Layout.fillWidth: true
+              spacing: 0
+              Text { text: "Sessões"; color: root.foreground; font.pixelSize: 14; font.bold: true }
+              Text {
+                text: Model.hooksText(root.hooksState)
+                color: root.hooksState === "error" ? root.urgent : root.dim
+                font.pixelSize: 11
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+              }
+            }
+            ActionChip {
+              visible: root.hooksState === "missing" || root.hooksState === "error"
+              label: "Ativar"
+              strong: true
+              onClicked: root.installHooks()
+            }
           }
           Text { text: "Agentes ocultos saem das telas de início, sessões e limites."; color: root.dim; font.pixelSize: 11; wrapMode: Text.Wrap; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
         }

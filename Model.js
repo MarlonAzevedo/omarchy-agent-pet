@@ -249,6 +249,15 @@ function focusMessage(info, focus) {
 }
 
 // Biblioteca compartilhada: só a primeira cópia do painel (um por monitor) avisa
+// Estado dos hooks na tela Agentes ("", ok, missing, installing, error)
+function hooksText(state) {
+  if (state === "ok") return "Acompanhando Claude Code e Codex"
+  if (state === "missing") return "Desativado: ative para ver as sessões dos agentes"
+  if (state === "installing") return "Ativando…"
+  if (state === "error") return "Falhou; rode bin/agent-pet setup na pasta do plugin"
+  return "Conferindo…"
+}
+
 var CLAIMED = {}
 function claimOnce(key) {
   if (CLAIMED[key]) return false

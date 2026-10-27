@@ -43,6 +43,7 @@ Window {
         // O FileView de teste não lê arquivos; o manifest real vem daqui
         p.manifest = ({ name: "Retro Agent Pet", version: "0.3.0", author: "Marlon Azevedo", license: "MIT", homepage: "https://github.com/MarlonAzevedo/omarchy-retro-agent-pet" })
         p.daily = ({ completed_responses: 12, active_seconds: 5400 })
+        p.hooksState = "missing"
         return
       }
       // Passos ímpares trocam a tela; pares capturam (o grab desenha no quadro seguinte)

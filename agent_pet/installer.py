@@ -183,15 +183,33 @@ def install(settings_path, config_path, project_root, confirm, codex_hooks_path=
         raise
 
 
-def setup():
+def _setup_paths():
     home = Path.home()
     root = Path(__file__).resolve().parents[1]
-    settings_path = home / ".claude" / "settings.json"
-    config_path = home / ".config" / "agent-pet" / "config.json"
     codex_home = Path(os.environ.get("CODEX_HOME") or home / ".codex")
-    codex_hooks_path = codex_home / "hooks.json" if codex_home.is_dir() else None
     old_antigravity_path = home / ".gemini" / "config" / "hooks.json"
-    old_antigravity_path = old_antigravity_path if old_antigravity_path.is_file() else None
+    return (
+        root,
+        home / ".claude" / "settings.json",
+        home / ".config" / "agent-pet" / "config.json",
+        codex_home / "hooks.json" if codex_home.is_dir() else None,
+        old_antigravity_path if old_antigravity_path.is_file() else None,
+    )
+
+
+def check():
+    # 0: hooks instalados; 3: falta instalar ou atualizar (usado pelo painel)
+    root, settings_path, _, codex_hooks_path, old_antigravity_path = _setup_paths()
+    try:
+        plans = _plan(_targets(root, settings_path, codex_hooks_path, old_antigravity_path))
+    except (OSError, ValueError) as error:
+        print(f"Falha ao conferir: {error}", file=sys.stderr)
+        return 1
+    return 3 if any(merged != settings for _, settings, merged in plans) else 0
+
+
+def setup(assume_yes=False):
+    root, settings_path, config_path, codex_hooks_path, old_antigravity_path = _setup_paths()
     print(f"Será instalado o monitor de sessões em {settings_path}.")
     if codex_hooks_path:
         print(f"Codex encontrado: também em {codex_hooks_path} (aprove ao abrir uma sessão nova do Codex: 'Trust all and continue').")
@@ -201,12 +219,13 @@ def setup():
             print("Os hooks serão mesclados à configuração existente; os hooks atuais serão preservados.")
         else:
             print("Os hooks já estão instalados.")
-        try:
-            answer = input("Aplicar a instalação? [s/N] ").strip().lower()
-        except EOFError:
-            return 2
-        if answer not in {"s", "sim", "y", "yes"}:
-            return 2
+        if not assume_yes:
+            try:
+                answer = input("Aplicar a instalação? [s/N] ").strip().lower()
+            except EOFError:
+                return 2
+            if answer not in {"s", "sim", "y", "yes"}:
+                return 2
         return install(settings_path, config_path, root, True, codex_hooks_path, old_antigravity_path)
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"Falha na instalação: {error}", file=sys.stderr)
