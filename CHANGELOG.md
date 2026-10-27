@@ -17,6 +17,8 @@ All notable changes to Retro Agent Pet are documented here. The format is based 
 - Robot animation with antenna lights and moving arms,
   following the other pets: animated while working, waiting for attention or near
   a usage limit; stationary while idle.
+- CLI commands for visible-session status (including JSON output), shared focus
+  timer controls and character selection, using the panel's configuration and state.
 
 ### Fixed
 

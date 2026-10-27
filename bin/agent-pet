@@ -8,19 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(ROOT))
 
-from agent_pet.installer import check, setup
-
-
-def main(argv):
-    if argv == ["setup"]:
-        return setup()
-    # --yes: o painel já pediu a confirmação no botão
-    if argv == ["setup", "--yes"]:
-        return setup(assume_yes=True)
-    if argv == ["check"]:
-        return check()
-    print("Uso: agent-pet setup [--yes] | agent-pet check", file=sys.stderr)
-    return 1
+from agent_pet.cli import main
 
 
 if __name__ == "__main__":

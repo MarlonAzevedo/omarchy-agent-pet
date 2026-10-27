@@ -125,7 +125,45 @@ tool name and folder.
 | `discreet` | `false` | Discreet mode: no notifications, no blinking icon; managed by the **Agentes** screen. |
 | `language` | `"auto"` | Panel and notification language: `"pt"`, `"en"` or `"auto"` (from `LANG`); managed by the **Agentes** screen. |
 | `focus_rounds` | `4` | Focus rounds per timer started from the panel. |
-| `character` | `"computer"` | `"computer"`, `"cat"`, `"robot"` or `"dog"`; managed by the panel. |
+| `character` | `"computer"` | `"computer"`, `"cat"`, `"robot"` or `"dog"`; shared by the panel and CLI. |
+
+## Command line
+
+The CLI is included at `bin/agent-pet` in the plugin directory. To call it as
+`agent-pet` from any terminal, create a symlink once (without replacing an existing command):
+
+```bash
+mkdir -p ~/.local/bin
+ln -s ~/.config/omarchy/plugins/io.github.marlonazevedo.agent-pet/bin/agent-pet ~/.local/bin/agent-pet
+```
+
+Make sure `~/.local/bin` is in your `PATH`, or use the full plugin path instead.
+
+```bash
+agent-pet status             # Visible sessions, focus, character and usage-limit snapshots
+agent-pet status --json      # Machine-readable output
+agent-pet focus 25 5 4       # Start 4 work rounds of 25 min, with 5 min breaks
+agent-pet focus              # Show the current focus timer (also: focus status)
+agent-pet focus pause
+agent-pet focus resume
+agent-pet focus stop
+agent-pet pet                # Show the current character
+agent-pet pet dog            # computer, cat, robot or dog
+agent-pet --help
+```
+
+Focus uses the same timer as the panel: there is no break after the last round,
+and pause/resume preserves time remaining. Starting a timer replaces the current
+one. Work accepts 1–1440 minutes, breaks 0–1440 minutes and rounds 1–100.
+Character changes preserve the other preferences and appear in the panel and bar.
+Queries do not write state or launch usage collectors; usage limits are the latest
+snapshots already collected by Omarchy. Hidden agents are omitted from `status`.
+
+Like the panel, the CLI respects `XDG_CONFIG_HOME` and `XDG_STATE_HOME`, falling
+back to `~/.config` and `~/.local/state`. Terminal messages are in Portuguese;
+`status --json` uses stable English keys (`sessions`, `focus`, `character`, `usage`).
+Invalid arguments return 2; file or state errors return 1. Existing `setup` and
+`check` commands remain available with their original exit codes.
 
 ## Development
 
