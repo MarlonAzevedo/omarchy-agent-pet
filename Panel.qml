@@ -911,7 +911,7 @@ Panel {
             Layout.alignment: Qt.AlignHCenter
           }
           Text {
-            text: "Acompanha as sessões do Claude Code, do Codex e do Antigravity, os pedidos de permissão, os limites e o uso de cada agente."
+            text: "Acompanha as sessões do Claude Code e do Codex, os pedidos de permissão, os limites e o uso de cada agente."
             color: root.dim
             font.pixelSize: 11
             wrapMode: Text.Wrap

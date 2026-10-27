@@ -210,93 +210,6 @@ class HookStateTests(unittest.TestCase):
             main(["--agent", "../../etc"])
         self.assertEqual(handler.call_args.kwargs["agent"], "claude")
 
-    def agy(self, event_name, payload, pid=4242):
-        payload = {"conversationId": "c1", "workspacePaths": ["/x/site"], **payload}
-        out = io.StringIO()
-        with patch("sys.stdin", io.StringIO(json.dumps(payload))), patch("agent_pet.hooks._agent_pid", return_value=pid), \
-                patch("agent_pet.hooks._watch_end") as watch, patch("agent_pet.hooks._state_root", return_value=self.state), \
-                patch("agent_pet.hooks._config_path", return_value=self.config), redirect_stdout(out):
-            self.assertEqual(main(["--agent", "antigravity", "--event", event_name]), 0)
-        # PreToolUse exige "decision"; sem ela o agy barra a ferramenta
-        expected = {"decision": "ask"} if event_name == "PreToolUse" else {}
-        self.assertEqual(json.loads(out.getvalue()), expected)
-        return watch
-
-    def test_antigravity_pre_tool_use_never_blocks_with_bad_input(self):
-        out = io.StringIO()
-        with patch("sys.stdin", io.StringIO("não é json")), redirect_stdout(out):
-            self.assertEqual(main(["--agent", "antigravity", "--event", "PreToolUse"]), 0)
-        self.assertEqual(json.loads(out.getvalue()), {"decision": "ask"})
-
-    def test_antigravity_turn_follows_hooks(self):
-        watch = self.agy("SessionStart", {})
-        data = self.read_session("antigravity:c1")
-        self.assertEqual((data["agent"], data["cwd"], data["pid"], data["status"]), ("antigravity", "/x/site", 4242, "idle"))
-        watch.assert_called_once_with(4242, self.session_file("antigravity:c1"))
-        self.agy("PreInvocation", {"invocationNum": 0})
-        self.assertEqual(self.read_session("antigravity:c1")["status"], "working")
-        self.agy("PreToolUse", {"toolCall": {"name": "run_command", "args": {"CommandLine": "npm test\nmais"}}})
-        data = self.read_session("antigravity:c1")
-        self.assertEqual((data["current_tool"], data["tool_detail"]), ("run_command", "npm test"))
-        self.agy("PostToolUse", {"toolCall": {"name": "run_command", "args": {}}})
-        self.assertIsNone(self.read_session("antigravity:c1")["current_tool"])
-        self.agy("PreInvocation", {"invocationNum": 1})
-        self.assertIsNotNone(self.read_session("antigravity:c1")["turn_started_at"])
-        self.agy("Stop", {"terminationReason": "NO_TOOL_CALL"})
-        self.assertEqual(self.read_session("antigravity:c1")["status"], "idle")
-        day = json.loads(next((self.state / "day").glob("*.json")).read_text())
-        self.assertEqual(day["completed_responses"], 1)
-
-    def test_antigravity_file_tools_show_basename(self):
-        self.agy("SessionStart", {})
-        self.agy("PreToolUse", {"toolCall": {"name": "edit_file", "args": {"Path": "/x/site/src/Hero.tsx"}}})
-        self.assertEqual(self.read_session("antigravity:c1")["tool_detail"], "Hero.tsx")
-
-    def test_antigravity_cancel_is_not_a_reply(self):
-        self.agy("SessionStart", {})
-        self.agy("PreInvocation", {"invocationNum": 0})
-        self.agy("Stop", {"terminationReason": "USER_CANCELED"})
-        self.assertEqual(self.read_session("antigravity:c1")["status"], "idle")
-        self.assertFalse((self.state / "day").exists())
-
-    def test_antigravity_error_is_not_a_reply(self):
-        # Regressão: turno que falhou (ex.: cota esgotada) contava como resposta
-        self.agy("SessionStart", {})
-        self.agy("PreInvocation", {"invocationNum": 0})
-        self.agy("Stop", {"terminationReason": "ERROR", "error": "RESOURCE_EXHAUSTED"})
-        self.assertEqual(self.read_session("antigravity:c1")["status"], "idle")
-        self.assertFalse((self.state / "day").exists())
-
-    def test_antigravity_resumed_conversation_is_adopted(self):
-        # agy -c não manda SessionStart
-        watch = self.agy("PreInvocation", {"invocationNum": 0})
-        data = self.read_session("antigravity:c1")
-        self.assertEqual((data["status"], data["pid"]), ("working", 4242))
-        watch.assert_called_once()
-
-    def test_antigravity_new_conversation_drops_old_of_same_process(self):
-        self.agy("SessionStart", {"conversationId": "old"})
-        self.agy("SessionStart", {"conversationId": "dead"}, pid=2**22 + 7)
-        self.send({"hook_event_name": "SessionStart", "session_id": "claude1"})
-        self.agy("SessionStart", {"conversationId": "new"})
-        self.assertFalse(self.session_file("antigravity:old").exists())
-        self.assertFalse(self.session_file("antigravity:dead").exists())
-        self.assertTrue(self.session_file("antigravity:new").exists())
-        self.assertTrue(self.session_file("claude1").exists())
-
-    def test_antigravity_session_ends_with_process(self):
-        from agent_pet.hooks import _watch_end
-        target = self.root / "s.json"
-        target.write_text("{}")
-        process = subprocess.Popen(["sleep", "0.3"])
-        _watch_end(process.pid, target)
-        self.assertTrue(target.exists())
-        process.wait()
-        deadline = time.time() + 5
-        while target.exists() and time.time() < deadline:
-            time.sleep(0.1)
-        self.assertFalse(target.exists())
-
     def test_session_record_matches_persisted_contract(self):
         self.send({"hook_event_name": "SessionStart", "session_id": "s1", "cwd": "/tmp", "session_title": "t"}, 1000)
         self.send({"hook_event_name": "UserPromptSubmit", "session_id": "s1"}, 2000)
@@ -407,20 +320,6 @@ class HookTests(unittest.TestCase):
             data = json.loads((state / "sessions" / f"{digest}.json").read_text())
             self.assertEqual(data["session_id"], "s1")
             self.assertIn(data["current_tool"], {"Bash", "Write"})
-
-    def test_antigravity_hook_never_fails(self):
-        # Regressão: código 1 no PreToolUse pode barrar a ferramenta no agy ("pre-tool hooks failed")
-        with tempfile.TemporaryDirectory() as home:
-            env = os.environ.copy()
-            env["HOME"] = home
-            (Path(home) / ".local").mkdir()
-            (Path(home) / ".local" / "state").write_text("not a directory")
-            hook = ROOT / "hook" / "pet-hook.py"
-            payload = json.dumps({"conversationId": "c1", "toolCall": {"name": "run_command", "args": {"CommandLine": "ls"}}})
-            result = subprocess.run([sys.executable, str(hook), "--agent", "antigravity", "--event", "PreToolUse"],
-                                    input=payload, text=True, capture_output=True, env=env)
-            self.assertEqual(result.returncode, 0)
-            self.assertEqual(json.loads(result.stdout), {"decision": "ask"})
 
     def test_hook_exit_codes(self):
         with tempfile.TemporaryDirectory() as home:

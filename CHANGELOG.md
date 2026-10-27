@@ -6,12 +6,13 @@ All notable changes to Retro Agent Pet are documented here. The format is based 
 
 ## [Unreleased]
 
-### Fixed
+### Removed
 
-- Antigravity refused every tool call ("tool call denied by pre-tool hook") while the
-  pet was installed. `agy` requires a `decision` in the `PreToolUse` reply, and the hook
-  answered `{}`. It now answers `{"decision": "ask"}`, which leaves the decision to
-  `agy`'s normal permissions.
+- Antigravity CLI (`agy`) support. `agy` 1.4.8 blocked every tool call while the pet
+  was installed, and its usage is not collected, so following it was not worth it.
+  `agent-pet setup` removes the old `retro-agent-pet` block from
+  `~/.gemini/config/hooks.json` (with a backup); run it after updating, or delete the
+  block by hand.
 
 ## [0.4.0] - 2026-10-26
 

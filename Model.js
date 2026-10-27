@@ -96,8 +96,7 @@ function sessionName(session) {
 }
 
 var VERBS = { Edit: "Editando", apply_patch: "Editando", MultiEdit: "Editando", Write: "Escrevendo", Read: "Lendo", NotebookEdit: "Editando",
-  Grep: "Buscando", Glob: "Buscando", WebSearch: "Pesquisando", Task: "Subagente ·", Agent: "Subagente ·",
-  read_file: "Lendo", write_file: "Escrevendo", edit_file: "Editando", run_command: "Rodando" }
+  Grep: "Buscando", Glob: "Buscando", WebSearch: "Pesquisando", Task: "Subagente ·", Agent: "Subagente ·" }
 
 function activityText(session) {
   if (session.status === "attention") return session.attention_reason === "permission" ? "Pediu permissão" : "Esperando resposta"
@@ -137,7 +136,7 @@ function depletionTime(limit, now) {
   return end < reset ? end : null
 }
 
-var AGENT_LABELS = { claude: "Claude Code", codex: "Codex", antigravity: "Antigravity" }
+var AGENT_LABELS = { claude: "Claude Code", codex: "Codex" }
 
 function agentLabel(session) {
   var agent = session && session.agent || "claude"
