@@ -6,6 +6,8 @@ All notable changes to Retro Agent Pet are documented here. The format is based 
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-27
+
 ### Added
 
 - **Ativar** button on the Agentes screen: it installs the session hooks
@@ -83,7 +85,8 @@ All notable changes to Retro Agent Pet are documented here. The format is based 
   retro computer on the bar, and the Início, Sessões, Limites, Uso, Pedido and
   Agentes screens, with usage and limits from Omarchy's own collectors.
 
-[Unreleased]: https://github.com/MarlonAzevedo/omarchy-retro-agent-pet/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/MarlonAzevedo/omarchy-retro-agent-pet/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/MarlonAzevedo/omarchy-retro-agent-pet/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/MarlonAzevedo/omarchy-retro-agent-pet/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/MarlonAzevedo/omarchy-retro-agent-pet/compare/5be276e...v0.4.0
 [0.3.0]: https://github.com/MarlonAzevedo/omarchy-retro-agent-pet/compare/50e8ff6...5be276e
