@@ -14,7 +14,9 @@ agent asks for permission.
 
 ## Screens
 
-A small menu at the bottom of the panel switches between:
+A small menu at the bottom of the panel switches between the screens below (named
+in Portuguese here; in English they are Home, Sessions, Limits, Usage, Request,
+Agents and About):
 
 - **Início** — the pet, one circular gauge per usage window of the selected
   agent (Claude Code 5h/7d, Codex 30d) and today's completed replies and active
@@ -34,7 +36,8 @@ A small menu at the bottom of the panel switches between:
   the requested command (`Bash: npm run migrate`) and how long it has waited.
 - **Agentes** — every agent Omarchy tracks, with a switch to hide it (and its
   sessions and gauges) from the other screens, and the **discreet mode** switch:
-  no notifications and no blinking icon. **Sessões** shows whether the session
+  no notifications and no blinking icon. **Idioma** switches between Portuguese
+  and English (automatic follows your system `LANG`). **Sessões** shows whether the session
   hooks are installed, with an **Ativar** button that installs them.
 - **ⓘ Sobre** — version, license and credits: author, e-mail and project links.
 
@@ -115,6 +118,7 @@ tool name and folder.
 | `notifications_enabled` | `true` | Desktop notification when an agent needs you. |
 | `hidden_agents` | `[]` | Agent ids hidden in the panel; managed by the **Agentes** screen. |
 | `discreet` | `false` | Discreet mode: no notifications, no blinking icon; managed by the **Agentes** screen. |
+| `language` | `"auto"` | Panel and notification language: `"pt"`, `"en"` or `"auto"` (from `LANG`); managed by the **Agentes** screen. |
 | `focus_rounds` | `4` | Focus rounds per timer. |
 
 ## Development

@@ -101,6 +101,17 @@ def _notification_enabled(config_path):
     return config.get("notifications_enabled") is not False and config.get("discreet") is not True
 
 
+def _needs_you(config_path):
+    # Mesmo idioma do painel: escolha do config ou o LANG do sistema
+    try:
+        language = _read_json(config_path, {}).get("language")
+    except (OSError, ValueError, AttributeError):
+        language = None
+    if language not in {"pt", "en"}:
+        language = "pt" if os.environ.get("LANG", "").lower().startswith("pt") else "en"
+    return "Claude Code precisa de você" if language == "pt" else "Claude Code needs you"
+
+
 def _valid_session_id(value):
     return isinstance(value, str) and 1 <= len(value) <= 256
 
@@ -287,7 +298,7 @@ def handle_event(event, state_root=None, config_path=None, now_ms=None, agent="c
                         notification = [
                             "notify-send",
                             event.get("title") or APP_NAME,
-                            event.get("message") or "Claude Code precisa de você",
+                            event.get("message") or _needs_you(config_path),
                         ]
 
             session["agent"] = agent

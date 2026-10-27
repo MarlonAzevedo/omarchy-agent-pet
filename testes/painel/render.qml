@@ -7,7 +7,7 @@ Window {
   width: 400; height: 700; visible: true; color: "#000"
   Loader { id: loader; source: "../../Panel.qml" }
   // "tela@agente" escolhe o agente dos gráficos; "tela#foco" mostra um foco em andamento
-  property var screens: ["home", "sessions", "limits", "attention", "agents", "home@codex", "limits@codex", "usage", "usage@codex", "about", "home#foco"]
+  property var screens: ["home", "sessions", "limits", "attention", "agents", "home@codex", "limits@codex", "usage", "usage@codex", "about", "home#foco", "home!en", "agents!en", "attention!en"]
   readonly property string outDir: Qt.application.arguments[Qt.application.arguments.length - 1]
   property int step: 0
   // Últimos 7 dias terminando hoje
@@ -39,7 +39,7 @@ Window {
           { session_id: "a", status: "working", cwd: "/x/landing-page", current_tool: "Edit", tool_detail: "Hero.tsx", activity_started_at: now - 190000, updated_at: now },
           { session_id: "b", agent: "codex", status: "working", cwd: "/x/worker", current_tool: "Bash", tool_detail: "npm test", activity_started_at: now - 20000, updated_at: now - 1 },
           { session_id: "c", status: "attention", attention_reason: "permission", cwd: "/x/checkout", current_tool: "Bash", tool_detail: "npm run migrate", activity_started_at: now - 30000, updated_at: now - 2 } ]
-        p.config = ({ hidden_agents: ["fireworks"] })
+        p.config = ({ hidden_agents: ["fireworks"], language: "pt" })
         // O FileView de teste não lê arquivos; o manifest real vem daqui
         p.manifest = ({ name: "Retro Agent Pet", version: "0.3.0", author: "Marlon Azevedo", license: "MIT", homepage: "https://github.com/MarlonAzevedo/omarchy-retro-agent-pet" })
         p.daily = ({ completed_responses: 12, active_seconds: 5400 })
@@ -50,13 +50,15 @@ Window {
       var index = Math.floor(w.step / 2)
       if (index >= w.screens.length) { t.stop(); Qt.quit(); return }
       var focused = w.screens[index].indexOf("#foco") >= 0
-      var parts = w.screens[index].replace("#foco", "").split("@")
+      var english = w.screens[index].indexOf("!en") >= 0
+      var parts = w.screens[index].replace("#foco", "").replace("!en", "").split("@")
       if (w.step % 2 === 0) {
         p.screen = parts[0]
+        p.config = ({ hidden_agents: ["fireworks"], language: english ? "en" : "pt" })
         p.selectedAgent = parts[1] || ""
         p.pomodoro = focused ? ({ work_min: 25, break_min: 5, rounds: 4, started_at: now - 35 * 60000 - 6 * 60000 - 32000, paused_at: null }) : ({})
       } else {
-        var name = w.screens[index].replace("@", "-").replace("#", "-")
+        var name = w.screens[index].replace("@", "-").replace("#", "-").replace("!", "-")
         findCard(p).grabToImage(function(r) { r.saveToFile(w.outDir + "/" + name + ".png") })
       }
       w.step++

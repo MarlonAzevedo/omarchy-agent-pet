@@ -1,5 +1,72 @@
 .pragma library
 
+// Textos do painel; chave sem tradução cai no português
+var TEXTS = {
+  pt: {
+    noLimitData: "Sem dados de limite", focus: "Foco", focusRound: "Foco {0}/{1}", breakRound: "Pausa {0}/{1}", paused: " · pausado",
+    resume: "Continuar", pause: "Pausar", stop: "Parar", todaySummary: "Hoje · {0} respostas · {1}",
+    sessions: "Sessões", noSessions: "Nenhuma sessão ativa", sessionsSummary: "● {0} rodando · {1} no total",
+    limits: "Limites", depletion: "no ritmo atual, acaba às {0}", limit: "Limite", usage: "Uso", plan: "Assinatura",
+    usageToday: "Hoje · {0} prompts · {1} · {2} tokens", oneSession: "{0} sessão", manySessions: "{0} sessões",
+    tokensPerDay: "Tokens por dia", tokensPerModel: "Tokens por modelo", noUsage: "Sem dados de uso",
+    needsYou: "● Precisa de você", waitingFor: "esperando há {0}", answerIn: "Responda no {0}; este painel continua aberto.",
+    agent: "agente", moreWaiting: "+{0} esperando", moreRunning: "+{0} rodando", noRequest: "Nenhum pedido pendente",
+    agents: "Agentes", noLimits: "Sem limites", noAgents: "Nenhum agente encontrado", discreet: "Modo discreto",
+    discreetHint: "Sem notificações e sem piscar o ícone", enable: "Ativar", language: "Idioma", auto: "Automático",
+    hiddenHint: "Agentes ocultos saem das telas de início, sessões e limites.", about: "Sobre", version: "versão {0}",
+    license: "licença {0}", aboutText: "Acompanha as sessões do Claude Code e do Codex, os pedidos de permissão, os limites e o uso de cada agente.",
+    createdBy: "Criado por", email: "E-mail", project: "Projeto", issues: "Problemas", openIssue: "abrir uma issue",
+    credits: "Uso e limites: coletores do widget Agents do Omarchy. Inspirado no Mupli.", home: "Início", request: "Pedido",
+    asked: "Pediu permissão", waitingAnswer: "Esperando resposta", idle: "Ocioso", thinking: "Pensando",
+    focusDone: "Foco concluído · {0} rodadas", focusBreak: "Pausa de {0} min · rodada {1}/{2} concluída", focusWork: "Foco: rodada {0}/{1} · {2} min",
+    hooksOk: "Acompanhando Claude Code e Codex", hooksMissing: "Desativado: ative para ver as sessões dos agentes", hooksInstalling: "Ativando…",
+    hooksError: "Falhou; rode bin/agent-pet setup na pasta do plugin", hooksChecking: "Conferindo…", inTime: "em {0}", today: "Hoje"
+  },
+  en: {
+    noLimitData: "No limit data", focus: "Focus", focusRound: "Focus {0}/{1}", breakRound: "Break {0}/{1}", paused: " · paused",
+    resume: "Resume", pause: "Pause", stop: "Stop", todaySummary: "Today · {0} replies · {1}",
+    sessions: "Sessions", noSessions: "No active sessions", sessionsSummary: "● {0} running · {1} total",
+    limits: "Limits", depletion: "at this pace, runs out at {0}", limit: "Limit", usage: "Usage", plan: "Subscription",
+    usageToday: "Today · {0} prompts · {1} · {2} tokens", oneSession: "{0} session", manySessions: "{0} sessions",
+    tokensPerDay: "Tokens per day", tokensPerModel: "Tokens per model", noUsage: "No usage data",
+    needsYou: "● Needs you", waitingFor: "waiting {0}", answerIn: "Answer in {0}; this panel stays open.",
+    agent: "the agent", moreWaiting: "+{0} waiting", moreRunning: "+{0} running", noRequest: "No pending request",
+    agents: "Agents", noLimits: "No limits", noAgents: "No agents found", discreet: "Discreet mode",
+    discreetHint: "No notifications and no blinking icon", enable: "Turn on", language: "Language", auto: "Automatic",
+    hiddenHint: "Hidden agents leave the home, sessions and limits screens.", about: "About", version: "version {0}",
+    license: "license {0}", aboutText: "Follows your Claude Code and Codex sessions, permission requests, limits and usage per agent.",
+    createdBy: "Created by", email: "E-mail", project: "Project", issues: "Issues", openIssue: "open an issue",
+    credits: "Usage and limits: collectors of Omarchy's Agents widget. Inspired by Mupli.", home: "Home", request: "Request",
+    asked: "Asked for permission", waitingAnswer: "Waiting for an answer", idle: "Idle", thinking: "Thinking",
+    focusDone: "Focus done · {0} rounds", focusBreak: "{0} min break · round {1}/{2} done", focusWork: "Focus: round {0}/{1} · {2} min",
+    hooksOk: "Following Claude Code and Codex", hooksMissing: "Off: turn it on to see your agents' sessions", hooksInstalling: "Turning on…",
+    hooksError: "Failed; run bin/agent-pet setup in the plugin folder", hooksChecking: "Checking…", inTime: "in {0}", today: "Today"
+  }
+}
+var DAYS = { pt: ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"], en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] }
+var VERBS = {
+  pt: { Edit: "Editando", apply_patch: "Editando", MultiEdit: "Editando", Write: "Escrevendo", Read: "Lendo", NotebookEdit: "Editando",
+    Grep: "Buscando", Glob: "Buscando", WebSearch: "Pesquisando", Task: "Subagente ·", Agent: "Subagente ·" },
+  en: { Edit: "Editing", apply_patch: "Editing", MultiEdit: "Editing", Write: "Writing", Read: "Reading", NotebookEdit: "Editing",
+    Grep: "Searching", Glob: "Searching", WebSearch: "Searching the web", Task: "Subagent ·", Agent: "Subagent ·" }
+}
+
+// "pt" ou "en": escolha do config, ou o LANG do sistema no automático
+function language(setting, envLang) {
+  if (setting === "pt" || setting === "en") return setting
+  return /^pt/i.test(String(envLang || "")) ? "pt" : "en"
+}
+
+function t(lang, key) {
+  var table = TEXTS[lang] || TEXTS.pt
+  return table[key] !== undefined ? table[key] : (TEXTS.pt[key] !== undefined ? TEXTS.pt[key] : key)
+}
+
+// Preenche {0}, {1}… do texto
+function format(lang, key, values) {
+  return t(lang, key).replace(/\{(\d+)\}/g, function(match, index) { return String((values || [])[Number(index)]) })
+}
+
 function sortSessions(sessions) {
   return (sessions || []).slice().sort(function(a, b) {
     var attention = (b.status === "attention" ? 1 : 0) - (a.status === "attention" ? 1 : 0)
@@ -70,23 +137,21 @@ function windowShort(label) {
   return hours >= 24 && hours % 24 === 0 ? hours / 24 + "d" : hours + "h"
 }
 
-var DAYS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"]
-
 // Renovação: "em 2h10" até 24 h; depois "sex 19:32"
-function resetLabel(resetsAt, now) {
+function resetLabel(resetsAt, now, lang) {
   if (!resetsAt) return ""
   var time = new Date(String(resetsAt)).getTime()
   var current = now === undefined ? Date.now() : Number(now)
   if (!isFinite(time) || time <= current) return ""
   var minutes = Math.ceil((time - current) / 60000)
-  if (minutes < 60) return "em " + minutes + "min"
+  if (minutes < 60) return format(lang, "inTime", [minutes + "min"])
   if (minutes < 24 * 60) {
     var rest = minutes % 60
-    return "em " + Math.floor(minutes / 60) + "h" + (rest < 10 ? "0" : "") + rest
+    return format(lang, "inTime", [Math.floor(minutes / 60) + "h" + (rest < 10 ? "0" : "") + rest])
   }
   var date = new Date(time)
   var pad = function(value) { return (value < 10 ? "0" : "") + value }
-  return DAYS[date.getDay()] + " " + pad(date.getHours()) + ":" + pad(date.getMinutes())
+  return (DAYS[lang] || DAYS.pt)[date.getDay()] + " " + pad(date.getHours()) + ":" + pad(date.getMinutes())
 }
 
 function sessionName(session) {
@@ -95,15 +160,12 @@ function sessionName(session) {
   return parts.length ? parts[parts.length - 1] : session.session_id
 }
 
-var VERBS = { Edit: "Editando", apply_patch: "Editando", MultiEdit: "Editando", Write: "Escrevendo", Read: "Lendo", NotebookEdit: "Editando",
-  Grep: "Buscando", Glob: "Buscando", WebSearch: "Pesquisando", Task: "Subagente ·", Agent: "Subagente ·" }
-
-function activityText(session) {
-  if (session.status === "attention") return session.attention_reason === "permission" ? "Pediu permissão" : "Esperando resposta"
-  if (session.status !== "working") return "Ocioso"
-  if (!session.current_tool) return "Pensando"
+function activityText(session, lang) {
+  if (session.status === "attention") return t(lang, session.attention_reason === "permission" ? "asked" : "waitingAnswer")
+  if (session.status !== "working") return t(lang, "idle")
+  if (!session.current_tool) return t(lang, "thinking")
   if (!session.tool_detail) return session.current_tool
-  return (VERBS[session.current_tool] || session.current_tool + " ·") + " " + session.tool_detail
+  return ((VERBS[lang] || VERBS.pt)[session.current_tool] || session.current_tool + " ·") + " " + session.tool_detail
 }
 
 function permissionText(session) {
@@ -190,13 +252,13 @@ function usageRecords(records, hidden) {
 }
 
 // Tokens dos últimos dias; share é a fração do dia mais movimentado
-function dayRows(recentDays, today) {
+function dayRows(recentDays, today, lang) {
   var list = recentDays || []
   var peak = Math.max.apply(null, [0].concat(list.map(function(day) { return Number(day.messageCount) || 0 })))
   return list.map(function(day) {
     var tokens = Number(day.messageCount) || 0
     var date = new Date(day.date + "T00:00:00")
-    return { date: day.date, label: day.date === today ? "Hoje" : DAYS[date.getDay()], tokens: tokens, share: peak ? tokens / peak : 0, today: day.date === today }
+    return { date: day.date, label: day.date === today ? t(lang, "today") : (DAYS[lang] || DAYS.pt)[date.getDay()], tokens: tokens, share: peak ? tokens / peak : 0, today: day.date === today }
   })
 }
 
@@ -242,22 +304,19 @@ function focusClock(ms) {
 }
 
 // Texto do aviso ao entrar em cada etapa do foco
-function focusMessage(info, focus) {
-  if (info.phase === "done") return "Foco concluído · " + info.rounds + " rodadas"
-  if (info.phase === "break") return "Pausa de " + focus.break_min + " min · rodada " + info.round + "/" + info.rounds + " concluída"
-  return "Foco: rodada " + info.round + "/" + info.rounds + " · " + focus.work_min + " min"
+function focusMessage(info, focus, lang) {
+  if (info.phase === "done") return format(lang, "focusDone", [info.rounds])
+  if (info.phase === "break") return format(lang, "focusBreak", [focus.break_min, info.round, info.rounds])
+  return format(lang, "focusWork", [info.round, info.rounds, focus.work_min])
+}
+
+// Estado dos hooks na tela Agentes ("", ok, missing, installing, error)
+var HOOKS_KEYS = { ok: "hooksOk", missing: "hooksMissing", installing: "hooksInstalling", error: "hooksError" }
+function hooksText(state, lang) {
+  return t(lang, HOOKS_KEYS[state] || "hooksChecking")
 }
 
 // Biblioteca compartilhada: só a primeira cópia do painel (um por monitor) avisa
-// Estado dos hooks na tela Agentes ("", ok, missing, installing, error)
-function hooksText(state) {
-  if (state === "ok") return "Acompanhando Claude Code e Codex"
-  if (state === "missing") return "Desativado: ative para ver as sessões dos agentes"
-  if (state === "installing") return "Ativando…"
-  if (state === "error") return "Falhou; rode bin/agent-pet setup na pasta do plugin"
-  return "Conferindo…"
-}
-
 var CLAIMED = {}
 function claimOnce(key) {
   if (CLAIMED[key]) return false

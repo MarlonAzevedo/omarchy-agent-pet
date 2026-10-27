@@ -21,6 +21,10 @@ Panel {
   readonly property var hiddenAgents: Array.isArray(config.hidden_agents) ? config.hidden_agents : []
   // Modo discreto: sem notificações e sem piscar o ícone
   readonly property bool discreet: config.discreet === true
+  // Idioma: "pt", "en" ou automático pelo LANG do sistema
+  readonly property string language: Model.language(config.language, Quickshell.env("LANG"))
+  function tr(key) { return Model.t(root.language, key) }
+  function trf(key, values) { return Model.format(root.language, key, values) }
   // Foco/pomodoro gravado em focus.json: continua com o painel fechado ou o shell reiniciado
   property var pomodoro: ({})
   readonly property var focusInfo: Model.focusPhase(pomodoro, nowMs)
@@ -221,7 +225,7 @@ Panel {
     if (!info) return
     if (info.phase === "done") root.stopFocus()
     if (first || root.discreet || !Model.claimOnce(key)) return
-    notifier.command = ["notify-send", "-a", "Retro Agent Pet", "Retro Agent Pet", Model.focusMessage(info, root.pomodoro)]
+    notifier.command = ["notify-send", "-a", "Retro Agent Pet", "Retro Agent Pet", Model.focusMessage(info, root.pomodoro, root.language)]
     notifier.running = true
   }
 
@@ -315,7 +319,7 @@ Panel {
     Text {
       anchors.horizontalCenter: parent.horizontalCenter
       anchors.bottom: parent.bottom
-      text: Model.resetLabel(gauge.limit.resetsAt, root.nowMs)
+      text: Model.resetLabel(gauge.limit.resetsAt, root.nowMs, root.language)
       color: root.dim
       font.pixelSize: Math.max(12, Math.round(gauge.size / 12))
     }
@@ -569,7 +573,7 @@ Panel {
               }
             }
           }
-          Text { text: "Sem dados de limite"; visible: root.agentLimits.length === 0; color: root.dim; Layout.alignment: Qt.AlignHCenter }
+          Text { text: root.tr("noLimitData"); visible: root.agentLimits.length === 0; color: root.dim; Layout.alignment: Qt.AlignHCenter }
           // Foco/pomodoro: atalhos para iniciar; em andamento, etapa, tempo e controles
           Rectangle {
             Layout.fillWidth: true
@@ -585,7 +589,7 @@ Panel {
                 visible: !root.focusInfo
                 Layout.fillWidth: true
                 spacing: 6
-                Text { text: "Foco"; color: root.foreground; font.pixelSize: 13; font.bold: true }
+                Text { text: root.tr("focus"); color: root.foreground; font.pixelSize: 13; font.bold: true }
                 Text { text: "× " + (Number(root.config.focus_rounds) || 4); color: root.dim; font.pixelSize: 11 }
                 Item { Layout.fillWidth: true }
                 ActionChip { label: "25/5"; onClicked: root.startFocus(25, 5) }
@@ -595,7 +599,7 @@ Panel {
                 visible: !!root.focusInfo
                 Layout.fillWidth: true
                 Text {
-                  text: root.focusInfo ? (root.focusInfo.phase === "break" ? "Pausa " : "Foco ") + root.focusInfo.round + "/" + root.focusInfo.rounds + (root.focusInfo.paused ? " · pausado" : "") : ""
+                  text: root.focusInfo ? root.trf(root.focusInfo.phase === "break" ? "breakRound" : "focusRound", [root.focusInfo.round, root.focusInfo.rounds]) + (root.focusInfo.paused ? root.tr("paused") : "") : ""
                   color: root.focusInfo && root.focusInfo.phase === "break" ? root.dim : root.foreground
                   font.pixelSize: 13
                   font.bold: true
@@ -616,17 +620,17 @@ Panel {
                 Layout.alignment: Qt.AlignHCenter
                 spacing: 6
                 ActionChip {
-                  label: root.focusInfo && root.focusInfo.paused ? "Continuar" : "Pausar"
+                  label: root.focusInfo && root.focusInfo.paused ? root.tr("resume") : root.tr("pause")
                   onClicked: root.focusInfo.paused ? root.resumeFocus() : root.pauseFocus()
                 }
-                ActionChip { label: "Parar"; onClicked: root.stopFocus() }
+                ActionChip { label: root.tr("stop"); onClicked: root.stopFocus() }
               }
             }
           }
           Text {
             Layout.fillWidth: true
             horizontalAlignment: Text.AlignHCenter
-            text: "Hoje · " + Number(root.daily.completed_responses || 0) + " respostas · " + Model.formatDuration(root.daily.active_seconds || 0)
+            text: root.trf("todaySummary", [Number(root.daily.completed_responses || 0), Model.formatDuration(root.daily.active_seconds || 0)])
             color: root.dim
             font.pixelSize: 12
           }
@@ -637,7 +641,7 @@ Panel {
           visible: root.screen === "sessions"
           Layout.fillWidth: true
           spacing: 8
-          ScreenHeader { title: "Sessões" }
+          ScreenHeader { title: root.tr("sessions") }
           RowLayout {
             Layout.fillWidth: true
             spacing: 16
@@ -678,7 +682,7 @@ Panel {
                   Text { text: Model.sessionName(card.modelData); color: root.foreground; font.pixelSize: 15; font.bold: true; elide: Text.ElideRight; Layout.fillWidth: true }
                   Text { text: Model.agentLabel(card.modelData); color: root.dim; font.pixelSize: 10 }
                 }
-                Text { text: Model.activityText(card.modelData); color: card.modelData.status === "attention" ? root.urgent : root.dim; font.pixelSize: 12; elide: Text.ElideRight; Layout.fillWidth: true }
+                Text { text: Model.activityText(card.modelData, root.language); color: card.modelData.status === "attention" ? root.urgent : root.dim; font.pixelSize: 12; elide: Text.ElideRight; Layout.fillWidth: true }
               }
               Text {
                 id: elapsedText
@@ -692,10 +696,10 @@ Panel {
               }
             }
           }
-          Text { text: "Nenhuma sessão ativa"; visible: root.shownSessions.length === 0; color: root.dim; Layout.alignment: Qt.AlignHCenter }
+          Text { text: root.tr("noSessions"); visible: root.shownSessions.length === 0; color: root.dim; Layout.alignment: Qt.AlignHCenter }
           Text {
             Layout.alignment: Qt.AlignHCenter
-            text: "● " + Model.runningCount(root.shownSessions) + " rodando · " + root.shownSessions.length + " no total"
+            text: root.trf("sessionsSummary", [Model.runningCount(root.shownSessions), root.shownSessions.length])
             color: Commons.Color.accent
             font.pixelSize: 12
             font.bold: true
@@ -710,7 +714,7 @@ Panel {
           spacing: 8
           readonly property var main: root.agentLimits.length ? root.agentLimits[0] : null
           readonly property var depletion: main ? Model.depletionTime(main, root.nowMs) : null
-          ScreenHeader { title: "Limites" }
+          ScreenHeader { title: root.tr("limits") }
           AgentTabs {}
           Gauge {
             visible: !!parent.main
@@ -721,7 +725,7 @@ Panel {
           Text {
             visible: parent.depletion !== null
             Layout.alignment: Qt.AlignHCenter
-            text: "no ritmo atual, acaba às " + Qt.formatTime(new Date(parent.depletion || 0), "hh:mm")
+            text: root.trf("depletion", [Qt.formatTime(new Date(parent.depletion || 0), "hh:mm")])
             color: root.urgent
             font.pixelSize: 13
           }
@@ -733,10 +737,10 @@ Panel {
               spacing: 2
               RowLayout {
                 Layout.fillWidth: true
-                Text { text: modelData.label || "Limite"; color: root.foreground; font.pixelSize: 12 }
+                Text { text: modelData.label || root.tr("limit"); color: root.foreground; font.pixelSize: 12 }
                 Item { Layout.fillWidth: true }
                 Text {
-                  text: Math.round(Model.limitPercent(modelData, root.nowMs)) + "%" + (Model.resetLabel(modelData.resetsAt, root.nowMs) ? " · " + Model.resetLabel(modelData.resetsAt, root.nowMs) : "")
+                  text: Math.round(Model.limitPercent(modelData, root.nowMs)) + "%" + (Model.resetLabel(modelData.resetsAt, root.nowMs, root.language) ? " · " + Model.resetLabel(modelData.resetsAt, root.nowMs, root.language) : "")
                   color: root.dim
                   font.pixelSize: 12
                 }
@@ -744,7 +748,7 @@ Panel {
               LimitBar { Layout.fillWidth: true; limit: modelData; tint: root.secondTint; labels: false }
             }
           }
-          Text { text: "Sem dados de limite"; visible: root.agentLimits.length === 0; color: root.dim; Layout.alignment: Qt.AlignHCenter }
+          Text { text: root.tr("noLimitData"); visible: root.agentLimits.length === 0; color: root.dim; Layout.alignment: Qt.AlignHCenter }
         }
 
         // Uso: plano, hoje, tokens por dia e por modelo, como no widget Agents
@@ -754,16 +758,16 @@ Panel {
           Layout.fillWidth: true
           spacing: 8
           readonly property var record: root.usageRecord
-          readonly property var days: record ? Model.dayRows(record.recentDays, Qt.formatDate(new Date(root.nowMs), "yyyy-MM-dd")) : []
+          readonly property var days: record ? Model.dayRows(record.recentDays, Qt.formatDate(new Date(root.nowMs), "yyyy-MM-dd"), root.language) : []
           readonly property var models: record ? Model.modelRows(record.modelUsage) : []
-          ScreenHeader { title: "Uso" }
+          ScreenHeader { title: root.tr("usage") }
           AgentTabs { records: root.usageList }
           Text {
             visible: !!usageScreen.record
             Layout.fillWidth: true
             horizontalAlignment: Text.AlignHCenter
             text: usageScreen.record ? (usageScreen.record.name || usageScreen.record.id)
-              + " · " + (usageScreen.record.usageStatusText || usageScreen.record.tierLabel || "Assinatura") : ""
+              + " · " + (usageScreen.record.usageStatusText || usageScreen.record.tierLabel || root.tr("plan")) : ""
             color: root.foreground
             font.pixelSize: 14
             font.bold: true
@@ -772,12 +776,12 @@ Panel {
           Text {
             visible: !!usageScreen.record
             Layout.alignment: Qt.AlignHCenter
-            text: usageScreen.record ? "Hoje · " + Number(usageScreen.record.todayPrompts || 0) + " prompts · "
-              + Number(usageScreen.record.todaySessions || 0) + (Number(usageScreen.record.todaySessions) === 1 ? " sessão · " : " sessões · ") + root.tokens(usageScreen.record.todayTotalTokens) + " tokens" : ""
+            text: usageScreen.record ? root.trf("usageToday", [Number(usageScreen.record.todayPrompts || 0),
+              root.trf(Number(usageScreen.record.todaySessions) === 1 ? "oneSession" : "manySessions", [Number(usageScreen.record.todaySessions || 0)]), root.tokens(usageScreen.record.todayTotalTokens)]) : ""
             color: root.dim
             font.pixelSize: 12
           }
-          Text { visible: usageScreen.days.length > 0; text: "Tokens por dia"; color: root.dim; font.pixelSize: 11; font.bold: true }
+          Text { visible: usageScreen.days.length > 0; text: root.tr("tokensPerDay"); color: root.dim; font.pixelSize: 11; font.bold: true }
           Repeater {
             model: usageScreen.days
             delegate: UsageRow {
@@ -788,7 +792,7 @@ Panel {
               strong: modelData.today
             }
           }
-          Text { visible: usageScreen.models.length > 0; text: "Tokens por modelo"; color: root.dim; font.pixelSize: 11; font.bold: true }
+          Text { visible: usageScreen.models.length > 0; text: root.tr("tokensPerModel"); color: root.dim; font.pixelSize: 11; font.bold: true }
           Repeater {
             model: usageScreen.models
             delegate: UsageRow {
@@ -800,7 +804,7 @@ Panel {
               tint: root.secondTint
             }
           }
-          Text { text: "Sem dados de uso"; visible: !usageScreen.record; color: root.dim; Layout.alignment: Qt.AlignHCenter }
+          Text { text: root.tr("noUsage"); visible: !usageScreen.record; color: root.dim; Layout.alignment: Qt.AlignHCenter }
         }
 
         // Precisa de você: sessão mais urgente e o que ela pediu
@@ -811,9 +815,9 @@ Panel {
           readonly property var waiting: root.orderedSessions.filter(function(session) { return session.status === "attention" })
           readonly property var first: waiting.length ? waiting[0] : null
           readonly property var elapsed: first ? Model.sessionElapsed(first, root.nowMs) : null
-          ScreenHeader { title: "● Precisa de você"; titleColor: root.urgent }
+          ScreenHeader { title: root.tr("needsYou"); titleColor: root.urgent }
           Text { text: parent.first ? Model.sessionName(parent.first) : ""; color: root.foreground; font.pixelSize: 26; font.bold: true; elide: Text.ElideRight; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
-          Text { text: parent.first ? Model.activityText(parent.first) : ""; color: root.urgent; font.pixelSize: 14; Layout.alignment: Qt.AlignHCenter }
+          Text { text: parent.first ? Model.activityText(parent.first, root.language) : ""; color: root.urgent; font.pixelSize: 14; Layout.alignment: Qt.AlignHCenter }
           Rectangle {
             visible: !!parent.first && parent.first.attention_reason === "permission"
             Layout.fillWidth: true
@@ -831,15 +835,15 @@ Panel {
               horizontalAlignment: Text.AlignHCenter
             }
           }
-          Text { text: parent.elapsed === null ? "" : "esperando há " + Model.shortDuration(parent.elapsed); color: root.dim; font.pixelSize: 12; Layout.alignment: Qt.AlignHCenter }
-          Text { text: "Responda no " + (parent.first ? Model.agentLabel(parent.first) : "agente") + "; este painel continua aberto."; color: root.dim; font.pixelSize: 11; wrapMode: Text.Wrap; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
+          Text { text: parent.elapsed === null ? "" : root.trf("waitingFor", [Model.shortDuration(parent.elapsed)]); color: root.dim; font.pixelSize: 12; Layout.alignment: Qt.AlignHCenter }
+          Text { text: root.trf("answerIn", [parent.first ? Model.agentLabel(parent.first) : root.tr("agent")]); color: root.dim; font.pixelSize: 11; wrapMode: Text.Wrap; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
           Text {
-            text: [parent.waiting.length > 1 ? "+" + (parent.waiting.length - 1) + " esperando" : "", Model.runningCount(root.shownSessions) ? "+" + Model.runningCount(root.shownSessions) + " rodando" : ""].filter(function(item) { return item }).join(" · ")
+            text: [parent.waiting.length > 1 ? root.trf("moreWaiting", [parent.waiting.length - 1]) : "", Model.runningCount(root.shownSessions) ? root.trf("moreRunning", [Model.runningCount(root.shownSessions)]) : ""].filter(function(item) { return item }).join(" · ")
             color: root.dim
             font.pixelSize: 12
             Layout.alignment: Qt.AlignHCenter
           }
-          Text { text: "Nenhum pedido pendente"; visible: !parent.first; color: root.dim; Layout.alignment: Qt.AlignHCenter }
+          Text { text: root.tr("noRequest"); visible: !parent.first; color: root.dim; Layout.alignment: Qt.AlignHCenter }
         }
 
         // Agentes: todos os registros de uso do Omarchy, com opção de mostrar/ocultar
@@ -847,7 +851,7 @@ Panel {
           visible: root.screen === "agents"
           Layout.fillWidth: true
           spacing: 8
-          ScreenHeader { title: "Agentes" }
+          ScreenHeader { title: root.tr("agents") }
           Repeater {
             model: root.usageRecords.length
             delegate: Rectangle {
@@ -874,8 +878,8 @@ Panel {
                   readonly property int sessionCount: root.sessions.filter(function(session) { return (session.agent || "claude") === agentCard.modelData.id }).length
                   text: (agentCard.limits.length
                     ? agentCard.limits.map(function(limit) { return Model.windowShort(limit.label) + " " + Math.round(Model.limitPercent(limit, root.nowMs)) + "%" }).join(" · ")
-                    : (agentCard.modelData.usageStatusText || "Sem limites"))
-                    + (sessionCount ? " · " + sessionCount + (sessionCount === 1 ? " sessão" : " sessões") : "")
+                    : (agentCard.modelData.usageStatusText || root.tr("noLimits")))
+                    + (sessionCount ? " · " + root.trf(sessionCount === 1 ? "oneSession" : "manySessions", [sessionCount]) : "")
                   color: root.dim
                   font.pixelSize: 12
                   elide: Text.ElideRight
@@ -892,7 +896,7 @@ Panel {
               }
             }
           }
-          Text { text: "Nenhum agente encontrado"; visible: root.usageRecords.length === 0; color: root.dim; Layout.alignment: Qt.AlignHCenter }
+          Text { text: root.tr("noAgents"); visible: root.usageRecords.length === 0; color: root.dim; Layout.alignment: Qt.AlignHCenter }
           RowLayout {
             Layout.fillWidth: true
             Layout.topMargin: 4
@@ -901,10 +905,25 @@ Panel {
             ColumnLayout {
               Layout.fillWidth: true
               spacing: 0
-              Text { text: "Modo discreto"; color: root.foreground; font.pixelSize: 14; font.bold: true }
-              Text { text: "Sem notificações e sem piscar o ícone"; color: root.dim; font.pixelSize: 11 }
+              Text { text: root.tr("discreet"); color: root.foreground; font.pixelSize: 14; font.bold: true }
+              Text { text: root.tr("discreetHint"); color: root.dim; font.pixelSize: 11 }
             }
             Toggle { on: root.discreet; onToggled: root.setConfig("discreet", !root.discreet) }
+          }
+          ColumnLayout {
+            id: languageRow
+            Layout.fillWidth: true
+            Layout.leftMargin: 10
+            Layout.rightMargin: 10
+            spacing: 4
+            readonly property string choice: root.config.language === "pt" || root.config.language === "en" ? root.config.language : "auto"
+            Text { text: root.tr("language"); color: root.foreground; font.pixelSize: 14; font.bold: true }
+            RowLayout {
+              spacing: 4
+              ActionChip { label: root.tr("auto"); strong: languageRow.choice === "auto"; onClicked: root.setConfig("language", "auto") }
+              ActionChip { label: "Português"; strong: languageRow.choice === "pt"; onClicked: root.setConfig("language", "pt") }
+              ActionChip { label: "English"; strong: languageRow.choice === "en"; onClicked: root.setConfig("language", "en") }
+            }
           }
           RowLayout {
             Layout.fillWidth: true
@@ -913,9 +932,9 @@ Panel {
             ColumnLayout {
               Layout.fillWidth: true
               spacing: 0
-              Text { text: "Sessões"; color: root.foreground; font.pixelSize: 14; font.bold: true }
+              Text { text: root.tr("sessions"); color: root.foreground; font.pixelSize: 14; font.bold: true }
               Text {
-                text: Model.hooksText(root.hooksState)
+                text: Model.hooksText(root.hooksState, root.language)
                 color: root.hooksState === "error" ? root.urgent : root.dim
                 font.pixelSize: 11
                 wrapMode: Text.Wrap
@@ -924,12 +943,12 @@ Panel {
             }
             ActionChip {
               visible: root.hooksState === "missing" || root.hooksState === "error"
-              label: "Ativar"
+              label: root.tr("enable")
               strong: true
               onClicked: root.installHooks()
             }
           }
-          Text { text: "Agentes ocultos saem das telas de início, sessões e limites."; color: root.dim; font.pixelSize: 11; wrapMode: Text.Wrap; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
+          Text { text: root.tr("hiddenHint"); color: root.dim; font.pixelSize: 11; wrapMode: Text.Wrap; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
         }
 
         // Sobre: créditos do autor e do projeto
@@ -939,7 +958,7 @@ Panel {
           Layout.fillWidth: true
           spacing: 8
           readonly property string homepage: root.manifest.homepage || ""
-          ScreenHeader { title: "Sobre" }
+          ScreenHeader { title: root.tr("about") }
           Pet {
             Layout.alignment: Qt.AlignHCenter
             Layout.preferredWidth: 56
@@ -954,13 +973,13 @@ Panel {
           }
           Text { text: root.manifest.name || "Retro Agent Pet"; color: root.foreground; font.pixelSize: 16; font.bold: true; Layout.alignment: Qt.AlignHCenter }
           Text {
-            text: ["versão " + (root.manifest.version || "?"), root.manifest.license ? "licença " + root.manifest.license : ""].filter(function(item) { return item }).join(" · ")
+            text: [root.trf("version", [root.manifest.version || "?"]), root.manifest.license ? root.trf("license", [root.manifest.license]) : ""].filter(function(item) { return item }).join(" · ")
             color: root.dim
             font.pixelSize: 12
             Layout.alignment: Qt.AlignHCenter
           }
           Text {
-            text: "Acompanha as sessões do Claude Code e do Codex, os pedidos de permissão, os limites e o uso de cada agente."
+            text: root.tr("aboutText")
             color: root.dim
             font.pixelSize: 11
             wrapMode: Text.Wrap
@@ -968,13 +987,13 @@ Panel {
             Layout.fillWidth: true
           }
           Rectangle { Layout.fillWidth: true; height: 1; color: root.dim; opacity: 0.2 }
-          CreditRow { label: "Criado por"; value: root.manifest.author || "Marlon Azevedo" }
-          CreditRow { label: "E-mail"; value: "foxwnobr@gmail.com"; url: "mailto:foxwnobr@gmail.com" }
+          CreditRow { label: root.tr("createdBy"); value: root.manifest.author || "Marlon Azevedo" }
+          CreditRow { label: root.tr("email"); value: "foxwnobr@gmail.com"; url: "mailto:foxwnobr@gmail.com" }
           CreditRow { visible: aboutScreen.homepage !== ""; label: "GitHub"; value: aboutScreen.homepage.split("/")[3] || ""; url: aboutScreen.homepage.split("/").slice(0, 4).join("/") }
-          CreditRow { visible: aboutScreen.homepage !== ""; label: "Projeto"; value: aboutScreen.homepage.split("/")[4] || ""; url: aboutScreen.homepage }
-          CreditRow { visible: aboutScreen.homepage !== ""; label: "Problemas"; value: "abrir uma issue"; url: aboutScreen.homepage + "/issues" }
+          CreditRow { visible: aboutScreen.homepage !== ""; label: root.tr("project"); value: aboutScreen.homepage.split("/")[4] || ""; url: aboutScreen.homepage }
+          CreditRow { visible: aboutScreen.homepage !== ""; label: root.tr("issues"); value: root.tr("openIssue"); url: aboutScreen.homepage + "/issues" }
           Text {
-            text: "Uso e limites: coletores do widget Agents do Omarchy. Inspirado no Mupli."
+            text: root.tr("credits")
             color: root.dim
             font.pixelSize: 11
             wrapMode: Text.Wrap
@@ -988,12 +1007,12 @@ Panel {
         RowLayout {
           Layout.fillWidth: true
           spacing: 2
-          MenuItem { target: "home"; label: "Início" }
-          MenuItem { target: "sessions"; label: "Sessões"; badge: root.attention && root.screen !== "attention" }
-          MenuItem { target: "limits"; label: "Limites" }
-          MenuItem { target: "usage"; label: "Uso" }
-          MenuItem { target: "agents"; label: "Agentes" }
-          MenuItem { target: "attention"; label: "Pedido"; visible: root.attention }
+          MenuItem { target: "home"; label: root.tr("home") }
+          MenuItem { target: "sessions"; label: root.tr("sessions"); badge: root.attention && root.screen !== "attention" }
+          MenuItem { target: "limits"; label: root.tr("limits") }
+          MenuItem { target: "usage"; label: root.tr("usage") }
+          MenuItem { target: "agents"; label: root.tr("agents") }
+          MenuItem { target: "attention"; label: root.tr("request"); visible: root.attention }
           MenuItem { target: "about"; label: "ⓘ" }
         }
       }

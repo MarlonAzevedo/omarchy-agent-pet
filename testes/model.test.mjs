@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs"
 const source = readFileSync(new URL("../Model.js", import.meta.url), "utf8").replace(/^\.pragma library\s*/, "")
-const Model = new Function(source + "; return { sortSessions, hasAttention, alarmingLimit, visible, formatDuration, limitPercent, sessionElapsed, petState, petRows, windowShort, resetLabel, sessionName, activityText, permissionText, shortDuration, runningCount, depletionTime, visibleRecords, visibleSessions, agentLabel, limitRecords, pickRecord, keepLimits, jsonFiles, usageRecords, dayRows, modelRows, focusPhase, focusClock, claimOnce, focusMessage, hooksText }")()
+const Model = new Function(source + "; return { sortSessions, hasAttention, alarmingLimit, visible, formatDuration, limitPercent, sessionElapsed, petState, petRows, windowShort, resetLabel, sessionName, activityText, permissionText, shortDuration, runningCount, depletionTime, visibleRecords, visibleSessions, agentLabel, limitRecords, pickRecord, keepLimits, jsonFiles, usageRecords, dayRows, modelRows, focusPhase, focusClock, claimOnce, focusMessage, hooksText, language, t, format }")()
 let failures = 0
 
 function expect(name, actual, expected) {
@@ -166,6 +166,24 @@ expect("done message", Model.focusMessage({ phase: "done", round: 4, rounds: 4 }
 expect("hooks ok text", Model.hooksText("ok"), "Acompanhando Claude Code e Codex")
 expect("hooks missing text", Model.hooksText("missing"), "Desativado: ative para ver as sessões dos agentes")
 expect("hooks error text", Model.hooksText("error"), "Falhou; rode bin/agent-pet setup na pasta do plugin")
+
+// Tradução: automático pelo LANG do sistema, ou escolha fixa no config
+expect("language from pt LANG", Model.language("auto", "pt_BR.UTF-8"), "pt")
+expect("language from other LANG", Model.language(undefined, "en_US.UTF-8"), "en")
+expect("language without LANG", Model.language("", ""), "en")
+expect("language fixed by config", Model.language("pt", "en_US.UTF-8"), "pt")
+expect("unknown language setting is auto", Model.language("xx", "pt_PT.UTF-8"), "pt")
+expect("text in english", Model.t("en", "noSessions"), "No active sessions")
+expect("text in portuguese", Model.t("pt", "noSessions"), "Nenhuma sessão ativa")
+expect("unknown key shows key", Model.t("en", "missingKey"), "missingKey")
+expect("format fills values", Model.format("en", "waitingFor", ["3m"]), "waiting 3m")
+expect("english activity", Model.activityText({ status: "working", current_tool: "Edit", tool_detail: "Hero.tsx" }, "en"), "Editing Hero.tsx")
+expect("english idle", Model.activityText({ status: "idle" }, "en"), "Idle")
+expect("english reset countdown", Model.resetLabel(new Date(base + 45 * 60000).toISOString(), base, "en"), "in 45min")
+expect("english reset weekday", Model.resetLabel(new Date(2026, 9, 30, 19, 32).toISOString(), base, "en"), "Fri 19:32")
+expect("english today row", Model.dayRows([{ date: "2026-10-27", messageCount: 5 }], "2026-10-27", "en")[0].label, "Today")
+expect("english focus message", Model.focusMessage({ phase: "done", round: 4, rounds: 4 }, focus, "en"), "Focus done · 4 rounds")
+expect("english hooks text", Model.hooksText("missing", "en"), "Off: turn it on to see your agents' sessions")
 
 if (failures) process.exit(1)
 console.log("checks passed")

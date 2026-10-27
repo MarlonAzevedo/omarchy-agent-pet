@@ -12,6 +12,9 @@ All notable changes to Retro Agent Pet are documented here. The format is based 
   (`agent-pet setup --yes`, with the same backups), so installing the plugin is a
   single `omarchy plugin add … --enable` and setup is no longer a required step.
   `agent-pet check` reports whether the hooks are installed.
+- English and Portuguese. The panel and the "needs you" notification follow the
+  system `LANG` (Portuguese for `pt_*`, English otherwise), or the language picked on
+  the Agentes screen (`language` in `config.json`).
 
 ## [0.5.0] - 2026-10-27
 

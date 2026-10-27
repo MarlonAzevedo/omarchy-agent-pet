@@ -69,6 +69,16 @@ class NotificationTests(unittest.TestCase):
         self.assertEqual(self.session()["status"], "attention")
         self.assertIn("Message", run.call_args.args[0])
 
+    def test_needs_you_follows_language(self):
+        event = {"hook_event_name": "Notification", "session_id": "s1", "notification_type": "agent_needs_input"}
+        cases = [({"language": "en"}, "pt_BR.UTF-8", "Claude Code needs you"), ({"language": "pt"}, "en_US.UTF-8", "Claude Code precisa de você"),
+                 ({}, "en_US.UTF-8", "Claude Code needs you"), ({}, "pt_BR.UTF-8", "Claude Code precisa de você")]
+        for config, lang, expected in cases:
+            self.config.write_text(json.dumps(config))
+            with self.subTest(config=config, lang=lang), patch.dict("os.environ", {"LANG": lang}), patch("agent_pet.hooks.subprocess.run") as run:
+                self.assertEqual(handle_event(event, self.state, self.config, now_ms=2000), 0)
+                self.assertEqual(run.call_args.args[0][-1], expected)
+
     def test_idle_prompt_is_not_attention(self):
         # Regressão: idle_prompt chega 60 s depois de toda resposta, sem pergunta nenhuma
         event = {"hook_event_name": "Notification", "session_id": "s1", "notification_type": "idle_prompt", "message": "waiting"}
