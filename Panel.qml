@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Shapes
+import QtQuick.Controls as Controls
 import Quickshell
 import Quickshell.Io
 import qs.Ui
@@ -18,6 +19,7 @@ Panel {
   readonly property string sessionsDir: stateHome + "/agent-pet/sessions"
   readonly property string configPath: (Quickshell.env("XDG_CONFIG_HOME") || home + "/.config") + "/agent-pet/config.json"
   property var config: ({})
+  readonly property string character: Model.characterId(config.character)
   readonly property var hiddenAgents: Array.isArray(config.hidden_agents) ? config.hidden_agents : []
   // Modo discreto: sem notificações e sem piscar o ícone
   readonly property bool discreet: config.discreet === true
@@ -32,6 +34,7 @@ Panel {
   property string focusKey: ""
   // Tela do painel: home, sessions, limits, usage, agents, attention ou about
   property string screen: "home"
+  onScreenChanged: contentViewport.contentY = 0
   property var sessionFiles: []
   property var sessions: []
   property var usageRecords: []
@@ -483,6 +486,7 @@ Panel {
         anchors.centerIn: parent
         width: 16
         height: 16
+        character: root.character
         petState: root.petState
         inkColor: root.surface
         bodyColor: root.foreground
@@ -526,17 +530,40 @@ Panel {
     bar: root.bar
     open: root.opened
     triggerMode: "hover"
-    contentWidth: 300
-    contentHeight: panel.fittedContentHeight(column.implicitHeight, 620)
+    contentWidth: panel.fittedContentWidth(320)
+    contentHeight: panel.cappedContentHeight(560)
 
     Flickable {
-      anchors.fill: parent
+      id: contentViewport
+      objectName: "screenViewport"
+      anchors.top: parent.top
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: navigation.top
+      anchors.bottomMargin: 12
+      boundsBehavior: Flickable.StopAtBounds
       contentWidth: width
       contentHeight: column.implicitHeight
       clip: true
+      Controls.ScrollBar.vertical: Controls.ScrollBar {
+        id: scrollBar
+        objectName: "contentScrollBar"
+        policy: Controls.ScrollBar.AsNeeded
+        visible: contentViewport.contentHeight > contentViewport.height
+        width: 6
+        minimumSize: 0.08
+        padding: 0
+        contentItem: Rectangle {
+          implicitWidth: 6
+          radius: 3
+          color: Qt.alpha(root.foreground, scrollBar.pressed || scrollBar.hovered ? 0.8 : 0.4)
+        }
+        background: Rectangle { radius: 3; color: Qt.alpha(root.foreground, 0.08) }
+      }
       ColumnLayout {
         id: column
-        width: parent.width
+        width: parent.width - (scrollBar.visible ? scrollBar.width + 8 : 0)
+        y: ["home", "limits", "attention", "about"].indexOf(root.screen) >= 0 ? Math.max(0, (contentViewport.height - implicitHeight) / 2) : 0
         spacing: 12
 
         // Início: agente grande e medidores
@@ -546,8 +573,9 @@ Panel {
           spacing: 12
           Pet {
             Layout.alignment: Qt.AlignHCenter
-            Layout.preferredWidth: 96
-            Layout.preferredHeight: 96
+            Layout.preferredWidth: root.focusInfo ? 160 : 192
+            Layout.preferredHeight: Layout.preferredWidth
+            character: root.character
             petState: root.petState
             inkColor: root.surface
             outlineColor: root.dim
@@ -567,7 +595,7 @@ Panel {
               delegate: Gauge {
                 required property var modelData
                 required property int index
-                size: 118
+                size: Math.min(138, (contentViewport.width - 12) / 2)
                 limit: modelData
                 tint: index % 2 ? root.secondTint : Commons.Color.accent
               }
@@ -719,7 +747,7 @@ Panel {
           Gauge {
             visible: !!parent.main
             Layout.alignment: Qt.AlignHCenter
-            size: 170
+            size: Math.min(240, contentViewport.width)
             limit: parent.main || ({})
           }
           Text {
@@ -911,6 +939,48 @@ Panel {
             Toggle { on: root.discreet; onToggled: root.setConfig("discreet", !root.discreet) }
           }
           ColumnLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: 10
+            Layout.rightMargin: 10
+            spacing: 6
+            Text { text: root.tr("character"); color: root.foreground; font.pixelSize: 14; font.bold: true }
+            RowLayout {
+              Layout.fillWidth: true
+              spacing: 4
+              Repeater {
+                model: ["computer", "cat", "robot", "dog"]
+                delegate: Rectangle {
+                  id: characterCard
+                  required property string modelData
+                  Layout.fillWidth: true
+                  implicitHeight: 70
+                  radius: 6
+                  color: Qt.alpha(root.foreground, root.character === modelData ? 0.16 : 0.05)
+                  border.width: root.character === modelData ? 1 : 0
+                  border.color: Commons.Color.accent
+                  Column {
+                    anchors.centerIn: parent
+                    spacing: 4
+                    Pet {
+                      anchors.horizontalCenter: parent.horizontalCenter
+                      width: 32; height: 32
+                      character: characterCard.modelData
+                      petState: root.petState
+                      inkColor: root.surface
+                      outlineColor: root.dim
+                      bodyColor: root.foreground
+                      faceColor: Commons.Color.accent
+                      accentColor: Commons.Color.accent
+                      warningColor: root.urgent
+                    }
+                    Text { text: root.tr(characterCard.modelData); color: root.foreground; font.pixelSize: 10; anchors.horizontalCenter: parent.horizontalCenter }
+                  }
+                  MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.setConfig("character", characterCard.modelData) }
+                }
+              }
+            }
+          }
+          ColumnLayout {
             id: languageRow
             Layout.fillWidth: true
             Layout.leftMargin: 10
@@ -961,8 +1031,9 @@ Panel {
           ScreenHeader { title: root.tr("about") }
           Pet {
             Layout.alignment: Qt.AlignHCenter
-            Layout.preferredWidth: 56
-            Layout.preferredHeight: 56
+            Layout.preferredWidth: 80
+            Layout.preferredHeight: 80
+            character: root.character
             petState: "idle"
             inkColor: root.surface
             outlineColor: root.dim
@@ -1001,20 +1072,27 @@ Panel {
             Layout.fillWidth: true
           }
         }
+      }
+    }
 
-        // Menu inferior
-        Rectangle { Layout.fillWidth: true; height: 1; color: root.dim; opacity: 0.35 }
-        RowLayout {
-          Layout.fillWidth: true
-          spacing: 2
-          MenuItem { target: "home"; label: root.tr("home") }
-          MenuItem { target: "sessions"; label: root.tr("sessions"); badge: root.attention && root.screen !== "attention" }
-          MenuItem { target: "limits"; label: root.tr("limits") }
-          MenuItem { target: "usage"; label: root.tr("usage") }
-          MenuItem { target: "agents"; label: root.tr("agents") }
-          MenuItem { target: "attention"; label: root.tr("request"); visible: root.attention }
-          MenuItem { target: "about"; label: "ⓘ" }
-        }
+    // Menu inferior permanece acessível durante a rolagem
+    ColumnLayout {
+      id: navigation
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      spacing: 12
+      Rectangle { Layout.fillWidth: true; height: 1; color: root.dim; opacity: 0.35 }
+      RowLayout {
+        Layout.fillWidth: true
+        spacing: 2
+        MenuItem { target: "home"; label: root.tr("home") }
+        MenuItem { target: "sessions"; label: root.tr("sessions"); badge: root.attention && root.screen !== "attention" }
+        MenuItem { target: "limits"; label: root.tr("limits") }
+        MenuItem { target: "usage"; label: root.tr("usage") }
+        MenuItem { target: "agents"; label: root.tr("agents") }
+        MenuItem { target: "attention"; label: root.tr("request"); visible: root.attention }
+        MenuItem { target: "about"; label: "ⓘ" }
       }
     }
   }

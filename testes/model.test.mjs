@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs"
 const source = readFileSync(new URL("../Model.js", import.meta.url), "utf8").replace(/^\.pragma library\s*/, "")
-const Model = new Function(source + "; return { sortSessions, hasAttention, alarmingLimit, visible, formatDuration, limitPercent, sessionElapsed, petState, petRows, windowShort, resetLabel, sessionName, activityText, permissionText, shortDuration, runningCount, depletionTime, visibleRecords, visibleSessions, agentLabel, limitRecords, pickRecord, keepLimits, jsonFiles, usageRecords, dayRows, modelRows, focusPhase, focusClock, claimOnce, focusMessage, hooksText, language, t, format }")()
+const Model = new Function(source + "; return { characterId, sortSessions, hasAttention, alarmingLimit, visible, formatDuration, limitPercent, sessionElapsed, petState, petRows, windowShort, resetLabel, sessionName, activityText, permissionText, shortDuration, runningCount, depletionTime, visibleRecords, visibleSessions, agentLabel, limitRecords, pickRecord, keepLimits, jsonFiles, usageRecords, dayRows, modelRows, focusPhase, focusClock, claimOnce, focusMessage, hooksText, language, t, format }")()
 let failures = 0
 
 function expect(name, actual, expected) {
@@ -45,6 +45,38 @@ for (const state of ["idle", "working", "attention", "done", "focus", "sleep", "
 expect("working animates", Model.petRows("working", 0).join() !== Model.petRows("working", 1).join(), true)
 expect("attention animates", Model.petRows("attention", 0).join() !== Model.petRows("attention", 1).join(), true)
 expect("states are distinct", new Set(["idle", "working", "attention", "done", "sleep", "limit"].map(state => Model.petRows(state, 0).join())).size, 6)
+
+for (const character of ["computer", "cat", "robot", "dog"]) {
+  expect(`${character} valid choice`, Model.characterId(character), character)
+  for (const state of ["idle", "working", "attention", "done", "focus", "sleep", "limit"]) {
+    for (const frame of (character === "robot" ? [0, 1, 2, 3] : [0, 1])) {
+      const rows = Model.petRows(state, frame, character)
+      expect(`${character}/${state}/${frame} valid sprite`, rows.length === 16 && rows.every(row => row.length === 16 && /^[.OEC BFAZX]+$/.test(row) && !row.includes(" ")), true)
+      const detailed = Model.petRows(state, frame, character, true)
+      expect(`${character}/${state}/${frame} detailed sprite`, detailed.length === 32 && detailed.every(row => row.length === 32 && /^[.OECBFAZXHSGD]+$/.test(row)), true)
+    }
+  }
+  for (const state of ["working", "attention", "limit"]) {
+    expect(`${character}/${state} animates`, Model.petRows(state, 0, character).join() !== Model.petRows(state, 1, character).join(), true)
+    expect(`${character}/${state} detailed animation`, Model.petRows(state, 0, character, true).join() !== Model.petRows(state, 1, character, true).join(), true)
+  }
+  expect(`${character} distinct states`, new Set(["idle", "working", "attention", "done", "focus", "sleep", "limit"].map(state => Model.petRows(state, 0, character).join())).size, 7)
+  expect(`${character} detailed states`, new Set(["idle", "working", "attention", "done", "focus", "sleep", "limit"].map(state => Model.petRows(state, 0, character, true).join())).size, 7)
+}
+for (const invalid of [undefined, null, "", "unknown", {}, 1]) {
+  expect("invalid character falls back", Model.characterId(invalid), "computer")
+  expect("invalid character keeps computer sprite", Model.petRows("idle", 0, invalid), Model.petRows("idle", 0))
+}
+expect("four distinct characters", new Set(["computer", "cat", "robot", "dog"].map(character => Model.petRows("idle", 0, character).join())).size, 4)
+expect("character Portuguese", Model.t("pt", "dog"), "Cachorro")
+expect("character English", Model.t("en", "dog"), "Dog")
+for (const detailed of [false, true]) {
+  expect(`robot idle has four frames (${detailed})`, new Set([0, 1, 2, 3].map(frame => Model.petRows("idle", frame, "robot", detailed).join())).size, 4)
+  const scale = detailed ? 2 : 1
+  const arms = frame => Model.petRows("working", frame, "robot", detailed).slice(10 * scale, 14 * scale)
+    .map(row => row.slice(0, 5 * scale) + row.slice(11 * scale)).join()
+  expect(`robot working moves arms (${detailed})`, arms(0) !== arms(1), true)
+}
 
 expect("5-hour window short", Model.windowShort("Session (5-hour)"), "5h")
 expect("7-day window short", Model.windowShort("Weekly (7-day)"), "7d")

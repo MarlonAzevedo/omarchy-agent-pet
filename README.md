@@ -10,13 +10,15 @@ agent's usage limit is left. The little computer on the bar changes face with
 the state of your sessions: it works, celebrates, sleeps, and blinks red when an
 agent asks for permission.
 
-> The interface is in Brazilian Portuguese.
+> The panel supports Brazilian Portuguese and English.
 
 ## Screens
 
 A small menu at the bottom of the panel switches between the screens below (named
 in Portuguese here; in English they are Home, Sessions, Limits, Usage, Request,
-Agents and About):
+Agents and About). All screens share a 320 × 560 px panel (clamped to the
+available screen space). The bottom menu stays in place while long lists scroll;
+the home pet is larger and keeps its square proportions:
 
 - **Início** — the pet, one circular gauge per usage window of the selected
   agent (Claude Code 5h/7d, Codex 30d) and today's completed replies and active
@@ -38,7 +40,10 @@ Agents and About):
   sessions and gauges) from the other screens, and the **discreet mode** switch:
   no notifications and no blinking icon. **Idioma** switches between Portuguese
   and English (automatic follows your system `LANG`). **Sessões** shows whether the session
-  hooks are installed, with an **Ativar** button that installs them.
+  hooks are installed, with an **Ativar** button that installs them. **Personagem**
+  offers live previews of Computer, Cat, Robot and Dog; your choice is saved in
+  `~/.config/agent-pet/config.json` (`character`: `computer`, `cat`, `robot`, `dog`)
+  and applies to the bar and panel. Missing or unknown values use Computer.
 - **ⓘ Sobre** — version, license and credits: author, e-mail and project links.
 
 ## Install
@@ -119,13 +124,16 @@ tool name and folder.
 | `hidden_agents` | `[]` | Agent ids hidden in the panel; managed by the **Agentes** screen. |
 | `discreet` | `false` | Discreet mode: no notifications, no blinking icon; managed by the **Agentes** screen. |
 | `language` | `"auto"` | Panel and notification language: `"pt"`, `"en"` or `"auto"` (from `LANG`); managed by the **Agentes** screen. |
-| `focus_rounds` | `4` | Focus rounds per timer. |
+| `focus_rounds` | `4` | Focus rounds per timer started from the panel. |
+| `character` | `"computer"` | `"computer"`, `"cat"`, `"robot"` or `"dog"`; managed by the panel. |
 
 ## Development
 
 ```bash
 python3 -B -m unittest discover -s testes -t .
 node testes/model.test.mjs
+QT_FORCE_STDERR_LOGGING=1 QT_QPA_PLATFORM=offscreen qml6 -I testes/painel/imports testes/painel/alignment.qml
+QT_FORCE_STDERR_LOGGING=1 QT_QPA_PLATFORM=offscreen qml6 testes/painel/robot-animation.qml
 QT_QPA_PLATFORM=offscreen qml6 -I testes/painel/imports testes/painel/render.qml -- /tmp/agent-pet-render
 ```
 

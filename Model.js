@@ -3,6 +3,7 @@
 // Textos do painel; chave sem tradução cai no português
 var TEXTS = {
   pt: {
+    character: "Personagem", computer: "Computador", cat: "Gato", robot: "Robô", dog: "Cachorro",
     noLimitData: "Sem dados de limite", focus: "Foco", focusRound: "Foco {0}/{1}", breakRound: "Pausa {0}/{1}", paused: " · pausado",
     resume: "Continuar", pause: "Pausar", stop: "Parar", todaySummary: "Hoje · {0} respostas · {1}",
     sessions: "Sessões", noSessions: "Nenhuma sessão ativa", sessionsSummary: "● {0} rodando · {1} no total",
@@ -23,6 +24,7 @@ var TEXTS = {
     hooksError: "Falhou; rode bin/agent-pet setup na pasta do plugin", hooksChecking: "Conferindo…", inTime: "em {0}", today: "Hoje"
   },
   en: {
+    character: "Character", computer: "Computer", cat: "Cat", robot: "Robot", dog: "Dog",
     noLimitData: "No limit data", focus: "Focus", focusRound: "Focus {0}/{1}", breakRound: "Break {0}/{1}", paused: " · paused",
     resume: "Resume", pause: "Pause", stop: "Stop", todaySummary: "Today · {0} replies · {1}",
     sessions: "Sessions", noSessions: "No active sessions", sessionsSummary: "● {0} running · {1} total",
@@ -325,7 +327,14 @@ function claimOnce(key) {
 }
 
 // Sprite 16x16 do computador antigo: O/E/C tinta, B gabinete, F tela, A destaque, X alerta, Z sono
-function petRows(state, frame) {
+function characterId(value) {
+  return ["computer", "cat", "robot", "dog"].indexOf(value) >= 0 ? value : "computer"
+}
+
+function petRows(state, frame, character, detailed) {
+  character = characterId(character)
+  if (detailed) return detailedPetRows(state, frame, character)
+  if (character !== "computer") return characterRows(state, frame, character)
   var eye = state === "limit" && !frame ? "X" : "E"
   var upper = state === "sleep" || state === "focus" ? "F" : eye
   var lower = state === "done" ? "F" : state === "focus" ? "C" : eye
@@ -349,4 +358,144 @@ function petRows(state, frame) {
     "....OBBBBBBO....",
     "....OOOOOOOO...."
   ]
+}
+
+// Silhuetas de 16×16; expressões e sinais seguem os mesmos estados do computador.
+function characterRows(state, frame, character) {
+  var rows
+  if (character === "cat") rows = [
+    "................", "..OO........OO..", "..OBO......OBO..", "..OBBOOOOOOBBO..",
+    "..OBBBBBBBBBBO..", "..OBBBBBBBBBBO..", "..OBBBBBBBBBBO..", ".AOBBBBBBBBBBOA.",
+    "..OBBBBAABBBBO..", ".AOBBBBBBBBBBOA.", "...OOOOOOOOOO...", "....OBBBBBO.....",
+    "....OBBBBBO..OO.", "....OBBBBBO..BO.", "...OOBBBBBOOOBO.", "...OOOOOOOOOOO.."
+  ]
+  else if (character === "dog") rows = [
+    "................", "................", "...OOOOOOOOOO...", ".OOOBBBBBBBBOOO.",
+    ".OBOBBBBBBBBOBO.", ".OBOBBBBBBBBOBO.", ".OBOBBBBBBBBOBO.", ".OOOBBBBBBBBOOO.",
+    "...OBFFAFFFBO...", "...OBFFAAFFBO...", "....OOOOOOOO....", ".....OBBBBO.....",
+    ".....OBBBBO.OO..", ".....OBBBBOOBO..", "....OOBBBBOBO...", "....OOOOOOOO...."
+  ]
+  else rows = [
+    ".......AA.......", ".......OO.......", "...OOOOOOOOOO...", "...OBBBBBBBBO...",
+    ".OOOFFFFFFFFOOO.", ".OBOFFFFFFFFOBO.", ".OBOFFFFFFFFOBO.", ".OOOFFFFFFFFOOO.",
+    "...OFFFFFFFFO...", "...OOOOOOOOOO...", "......OOOO......", "...OOOBBBAOOO...",
+    "...OBOBAABOBO...", "...OOOBBBBOOO...", ".....OO..OO.....", "....OOO..OOO...."
+  ]
+  var face = character === "robot" ? "F" : "B"
+  var eye = state === "limit" && !frame ? "X" : state === "sleep" || state === "focus" ? face : "E"
+  var lower = state === "done" ? face : state === "focus" ? "C" : eye
+  function pixel(x, y, value) { rows[y] = rows[y].slice(0, x) + value + rows[y].slice(x + 1) }
+  ;[5, 10].forEach(function(x) { pixel(x, 6, eye); pixel(x, 7, lower) })
+  if (state === "attention") { pixel(7, 8, "X"); pixel(8, 8, "X") }
+  if (state === "focus") { pixel(3, 6, "A"); pixel(12, 6, "A") }
+  if (state === "working") {
+    pixel(frame ? 9 : 6, 12, "A")
+    pixel(frame ? 6 : 9, 12, face)
+  }
+  if (state === "attention" && !frame) rows[0] = ".......XX......."
+  if (state === "sleep") rows[0] = "......Z..Z......"
+  if (character === "robot") {
+    var phase = frame % 4
+    var leftUp = state === "idle" ? phase === 1 || phase === 2 : state !== "sleep" && phase % 2 === 0
+    var rightUp = state === "idle" ? phase === 2 || phase === 3 : state !== "sleep" && phase % 2 === 1
+    for (var armY = 10; armY <= 13; armY++) {
+      for (var armX = 1; armX <= 4; armX++) {
+        pixel(armX, armY, "."); pixel(15 - armX, armY, ".")
+      }
+    }
+    function arm(right, raised) {
+      var x = raised ? 2 : 3
+      var y = raised ? 10 : 11
+      ;["OO", "BO", "OO"].forEach(function(row, offset) {
+        row.split("").forEach(function(color, col) { pixel(right ? 15 - x - col : x + col, y + offset, color) })
+      })
+      pixel(right ? 11 : 4, 12, "O")
+    }
+    arm(false, leftUp); arm(true, rightUp)
+    if (state === "idle" && phase === 3) {
+      ;[5, 10].forEach(function(x) { pixel(x, 6, "F"); pixel(x, 7, "E") })
+    }
+    if (state === "idle" && phase % 2) rows[0] = ".......FF......."
+  }
+  return rows
+}
+
+// A versão ampliada ganha contorno, volume e detalhes sem perder a leitura do ícone.
+function detailedPetRows(state, frame, character) {
+  var small = petRows(state, frame, character)
+  var pixels = []
+  small.forEach(function(row) {
+    var doubled = row.split("").map(function(pixel) { return pixel + pixel }).join("")
+    pixels.push(doubled.split(""), doubled.split(""))
+  })
+  function dot(x, y, color) { pixels[y][x] = color }
+  function line(x, y, text) { text.split("").forEach(function(color, offset) { dot(x + offset, y, color) }) }
+  function body(x, y, color) { if (pixels[y][x] === "B") dot(x, y, color) }
+  // Luz à esquerda, sombra à direita; somente dentro do corpo.
+  for (var y = 1; y < 31; y++) {
+    for (var x = 1; x < 31; x++) {
+      if (pixels[y][x] !== "B") continue
+      if (pixels[y][x - 1] === "O" || pixels[y - 1][x] === "O") body(x, y, "H")
+      else if (pixels[y][x + 1] === "O" || pixels[y + 1][x] === "O") body(x, y, "S")
+    }
+  }
+  if (character === "computer") {
+    line(9, 8, "GGGGGGGGGGGGGG")
+    for (var edge = 10; edge < 20; edge++) dot(23, edge, "D")
+    line(7, 22, "SBSB")
+    line(21, 22, "BSBS")
+    line(14, 23, "AHHA")
+    line(10, 28, "HHHHHHHHHHHH")
+    line(10, 29, "SSSSSSSSSSSS")
+    if (state !== "sleep" && state !== "focus" && state !== "limit") {
+      dot(12, 12, "G"); dot(18, 12, "G")
+    }
+  } else if (character === "cat" || character === "dog") {
+    if (character === "cat") {
+      line(6, 5, "AS"); line(24, 5, "SA")
+      line(6, 6, "AAS"); line(23, 6, "SAA")
+      line(12, 9, "SBBSSBBS")
+      line(3, 15, "EEE"); line(26, 15, "EEE")
+      line(2, 18, "EEE"); line(27, 18, "EEE")
+      line(13, 23, "HHHH")
+      line(12, 24, "HHHHHH")
+      line(12, 25, "HHHHHH")
+      line(12, 26, "HHHHHH")
+      line(12, 28, "SHHS")
+      dot(11, 28, "E"); dot(18, 28, "E")
+      line(26, 26, "HA")
+    } else {
+      line(3, 9, "SS"); line(27, 9, "SS")
+      line(3, 10, "SS"); line(27, 10, "SS")
+      line(3, 11, "SS"); line(27, 11, "SS")
+      line(12, 22, "AAAAAA")
+      line(15, 23, "AH")
+      line(13, 25, "HHHH")
+      line(13, 26, "HHHH")
+      dot(13, 28, "E"); dot(18, 28, "E")
+      dot(26, 25, "H")
+    }
+    line(12, 16, "HHHHHHHH")
+    line(12, 17, character === "dog" ? "HHHEEHHH" : "HHHAAHHH")
+    line(13, 18, "HHEEHH")
+    line(13, 19, "HEHHEH")
+    if (state === "attention") line(14, 17, "XXXX")
+    if (state === "working") line(14, 19, frame ? "AAAA" : "HEEH")
+    if (state !== "sleep" && state !== "focus" && state !== "limit") {
+      dot(10, 12, "H"); dot(20, 12, "H")
+    }
+  } else {
+    line(14, 0, frame % 2 ? "AGGA" : "AHHA")
+    line(9, 8, "GGGGGGGGGGGGGG")
+    line(9, 17, "DDDDDDDDDDDDDD")
+    line(6, 10, "HS"); line(24, 10, "SH")
+    line(13, 23, "EAAE")
+    line(13, 24, "EAAE")
+    line(13, 26, "SSSSSS")
+    line(8, 30, "HHHHHH"); line(18, 30, "HHHHHH")
+    if (state !== "sleep" && state !== "focus" && state !== "limit" && !(state === "idle" && frame % 4 === 3)) {
+      dot(10, 12, "G"); dot(20, 12, "G")
+    }
+  }
+  return pixels.map(function(row) { return row.join("") })
 }

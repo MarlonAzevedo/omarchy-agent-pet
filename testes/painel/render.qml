@@ -7,7 +7,7 @@ Window {
   width: 400; height: 700; visible: true; color: "#000"
   Loader { id: loader; source: "../../Panel.qml" }
   // "tela@agente" escolhe o agente dos gráficos; "tela#foco" mostra um foco em andamento
-  property var screens: ["home", "sessions", "limits", "attention", "agents", "home@codex", "limits@codex", "usage", "usage@codex", "about", "home#foco", "home!en", "agents!en", "attention!en"]
+  property var screens: ["home", "sessions", "limits", "attention", "agents", "home@codex", "limits@codex", "usage", "usage@codex", "about", "home#foco", "home!en", "agents!en", "attention!en", "home~cat", "home~robot", "home~dog", "agents~dog", "agents!en~robot", "sessions@many"]
   readonly property string outDir: Qt.application.arguments[Qt.application.arguments.length - 1]
   property int step: 0
   // Últimos 7 dias terminando hoje
@@ -51,11 +51,15 @@ Window {
       if (index >= w.screens.length) { t.stop(); Qt.quit(); return }
       var focused = w.screens[index].indexOf("#foco") >= 0
       var english = w.screens[index].indexOf("!en") >= 0
-      var parts = w.screens[index].replace("#foco", "").replace("!en", "").split("@")
+      var character = w.screens[index].split("~")[1] || "computer"
+      var parts = w.screens[index].split("~")[0].replace("#foco", "").replace("!en", "").split("@")
       if (w.step % 2 === 0) {
         p.screen = parts[0]
-        p.config = ({ hidden_agents: ["fireworks"], language: english ? "en" : "pt" })
+        p.config = ({ hidden_agents: ["fireworks"], language: english ? "en" : "pt", character: character })
         p.selectedAgent = parts[1] || ""
+        if (parts[1] === "many") p.sessions = Array.from({ length: 30 }, function(_, i) {
+          return { session_id: "session-" + i, cwd: "/project/session-" + i, status: "idle", updated_at: now - i }
+        })
         p.pomodoro = focused ? ({ work_min: 25, break_min: 5, rounds: 4, started_at: now - 35 * 60000 - 6 * 60000 - 32000, paused_at: null }) : ({})
       } else {
         var name = w.screens[index].replace("@", "-").replace("#", "-").replace("!", "-")

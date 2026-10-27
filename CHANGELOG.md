@@ -6,6 +6,25 @@ All notable changes to Retro Agent Pet are documented here. The format is based 
 
 ## [Unreleased]
 
+### Added
+
+- Persistent character picker with live previews on the Agents screen: Computer,
+  Cat, Robot and Dog, using theme colors and animated session states.
+- Detailed 32×32 pets in the panel, with shading, facial details and character
+  features; the bar keeps the readable 16×16 sprites.
+- A draggable scrollbar appears when panel content exceeds the available height,
+  keeping long session lists accessible with the navigation menu fixed in place.
+- Robot animation with antenna lights and moving arms,
+  following the other pets: animated while working, waiting for attention or near
+  a usage limit; stationary while idle.
+
+### Fixed
+
+- Align the character picker with the other preferences and widen the panel to
+  keep all four character names readable.
+- Keep every screen at the same panel size with a fixed bottom menu, scrollable
+  content, larger pets on Home and About, and larger Home and Limits gauges.
+
 ## [0.6.0] - 2026-10-27
 
 ### Added
