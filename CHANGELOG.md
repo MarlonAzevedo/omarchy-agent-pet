@@ -6,13 +6,16 @@ All notable changes to Retro Agent Pet are documented here. The format is based 
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-27
+
 ### Removed
 
 - Antigravity CLI (`agy`) support. `agy` 1.4.8 blocked every tool call while the pet
   was installed, and its usage is not collected, so following it was not worth it.
   `agent-pet setup` removes the old `retro-agent-pet` block from
   `~/.gemini/config/hooks.json` (with a backup); run it after updating, or delete the
-  block by hand.
+  block by hand. Antigravity sessions left in `~/.local/state/agent-pet/sessions/`
+  (for example after a reboot) can be deleted.
 
 ## [0.4.0] - 2026-10-26
 
@@ -70,7 +73,8 @@ All notable changes to Retro Agent Pet are documented here. The format is based 
   retro computer on the bar, and the Início, Sessões, Limites, Uso, Pedido and
   Agentes screens, with usage and limits from Omarchy's own collectors.
 
-[Unreleased]: https://github.com/MarlonAzevedo/omarchy-retro-agent-pet/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/MarlonAzevedo/omarchy-retro-agent-pet/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/MarlonAzevedo/omarchy-retro-agent-pet/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/MarlonAzevedo/omarchy-retro-agent-pet/compare/5be276e...v0.4.0
 [0.3.0]: https://github.com/MarlonAzevedo/omarchy-retro-agent-pet/compare/50e8ff6...5be276e
 [0.2.0]: https://github.com/MarlonAzevedo/omarchy-retro-agent-pet/compare/caa2d9d...50e8ff6
