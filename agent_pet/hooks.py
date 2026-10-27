@@ -388,8 +388,10 @@ def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     agent = argv[1] if len(argv) >= 2 and argv[0] == "--agent" and argv[1] in AGENTS else "claude"
     if agent == "antigravity":
-        # agy espera JSON na saída; {} não decide nada
-        print("{}")
+        # agy espera JSON na saída. No PreToolUse "decision" é obrigatória (sem ela, barra a
+        # ferramenta); "ask" segue a permissão normal do agy, sem liberar nem bloquear nada
+        pre_tool = argv[2:4] == ["--event", "PreToolUse"]
+        print('{"decision": "ask"}' if pre_tool else "{}")
     try:
         event = json.load(sys.stdin)
     except (json.JSONDecodeError, UnicodeDecodeError):

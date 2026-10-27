@@ -6,6 +6,13 @@ All notable changes to Retro Agent Pet are documented here. The format is based 
 
 ## [Unreleased]
 
+### Fixed
+
+- Antigravity refused every tool call ("tool call denied by pre-tool hook") while the
+  pet was installed. `agy` requires a `decision` in the `PreToolUse` reply, and the hook
+  answered `{}`. It now answers `{"decision": "ask"}`, which leaves the decision to
+  `agy`'s normal permissions.
+
 ## [0.4.0] - 2026-10-26
 
 ### Added

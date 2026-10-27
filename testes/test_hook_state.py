@@ -217,8 +217,16 @@ class HookStateTests(unittest.TestCase):
                 patch("agent_pet.hooks._watch_end") as watch, patch("agent_pet.hooks._state_root", return_value=self.state), \
                 patch("agent_pet.hooks._config_path", return_value=self.config), redirect_stdout(out):
             self.assertEqual(main(["--agent", "antigravity", "--event", event_name]), 0)
-        self.assertEqual(json.loads(out.getvalue()), {})
+        # PreToolUse exige "decision"; sem ela o agy barra a ferramenta
+        expected = {"decision": "ask"} if event_name == "PreToolUse" else {}
+        self.assertEqual(json.loads(out.getvalue()), expected)
         return watch
+
+    def test_antigravity_pre_tool_use_never_blocks_with_bad_input(self):
+        out = io.StringIO()
+        with patch("sys.stdin", io.StringIO("não é json")), redirect_stdout(out):
+            self.assertEqual(main(["--agent", "antigravity", "--event", "PreToolUse"]), 0)
+        self.assertEqual(json.loads(out.getvalue()), {"decision": "ask"})
 
     def test_antigravity_turn_follows_hooks(self):
         watch = self.agy("SessionStart", {})
@@ -412,7 +420,7 @@ class HookTests(unittest.TestCase):
             result = subprocess.run([sys.executable, str(hook), "--agent", "antigravity", "--event", "PreToolUse"],
                                     input=payload, text=True, capture_output=True, env=env)
             self.assertEqual(result.returncode, 0)
-            self.assertEqual(json.loads(result.stdout), {})
+            self.assertEqual(json.loads(result.stdout), {"decision": "ask"})
 
     def test_hook_exit_codes(self):
         with tempfile.TemporaryDirectory() as home:
