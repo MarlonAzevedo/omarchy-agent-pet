@@ -6,6 +6,8 @@ All notable changes to Retro Agent Pet are documented here. The format is based 
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-28
+
 ### Added
 
 - Persistent character picker with live previews on the Agents screen: Computer,
@@ -19,6 +21,11 @@ All notable changes to Retro Agent Pet are documented here. The format is based 
   a usage limit; stationary while idle.
 - CLI commands for visible-session status (including JSON output), shared focus
   timer controls and character selection, using the panel's configuration and state.
+
+### Changed
+
+- Refresh the marketplace preview with the current panel, focus timer and character
+  settings, and show all four companions in the README.
 
 ### Fixed
 
@@ -106,7 +113,8 @@ All notable changes to Retro Agent Pet are documented here. The format is based 
   retro computer on the bar, and the Início, Sessões, Limites, Uso, Pedido and
   Agentes screens, with usage and limits from Omarchy's own collectors.
 
-[Unreleased]: https://github.com/MarlonAzevedo/omarchy-retro-agent-pet/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/MarlonAzevedo/omarchy-retro-agent-pet/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/MarlonAzevedo/omarchy-retro-agent-pet/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/MarlonAzevedo/omarchy-retro-agent-pet/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/MarlonAzevedo/omarchy-retro-agent-pet/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/MarlonAzevedo/omarchy-retro-agent-pet/compare/5be276e...v0.4.0

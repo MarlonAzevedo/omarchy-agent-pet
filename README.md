@@ -2,7 +2,7 @@
 
 **A tiny retro computer on the Omarchy bar that keeps an eye on your coding agents.**
 
-![Retro Agent Pet panel: home with usage gauges, sessions and limits](preview.png)
+![Retro Agent Pet panel: home with usage gauges and focus timer, sessions, usage and character settings](preview.png)
 
 Retro Agent Pet watches your local **Claude Code** and **Codex** sessions and shows,
 at a glance, who is working, who is waiting for you and how much of each
@@ -11,6 +11,10 @@ the state of your sessions: it works, celebrates, sleeps, and blinks red when an
 agent asks for permission.
 
 > The panel supports Brazilian Portuguese and English.
+
+Choose your companion: Computer, Cat, Robot or Dog.
+
+![Computer, Cat, Robot and Dog in the current panel](characters.png)
 
 ## Screens
 
